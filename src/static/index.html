@@ -108,6 +108,8 @@
         .notes-list {
             max-height: 500px;
             overflow-y: auto;
+            overflow-x: hidden; /* prevent horizontal scroll */
+            padding-right: 12px; /* give space so hover translate doesn't get clipped */
         }
 
         .note-item {
@@ -118,11 +120,15 @@
             cursor: pointer;
             transition: all 0.3s ease;
             background: #f8f9fa;
+            width: 100%;
+            box-sizing: border-box; /* ensure padding doesn't cause overflow */
+            position: relative; /* allow z-index on hover */
         }
 
         .note-item:hover {
             border-color: #667eea;
-            transform: translateX(5px);
+            transform: translateX(4px);
+            z-index: 2; /* bring above neighbors so border is visible */
         }
 
         .note-item.active {
@@ -135,6 +141,7 @@
             font-size: 16px;
             margin-bottom: 5px;
             color: #333;
+            word-break: break-word; /* allow long titles to wrap */
         }
 
         .note-preview {
@@ -158,6 +165,46 @@
             justify-content: space-between;
             align-items: center;
             margin-bottom: 20px;
+            overflow: visible; /* allow dropdowns to overflow the header */
+        }
+
+        /* Keep header controls stable when title wraps */
+        .editor-header .editor-title {
+            flex: 1 1 auto;
+            min-width: 0; /* allow truncation/wrapping without forcing sibling shrink */
+            word-break: break-word;
+        }
+
+        /* Right-side header group should not shrink when title grows */
+        .editor-header > div {
+            flex: 0 0 auto;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        /* Translate control tweaks: ensure dropdown is not clipped and has visible border */
+        #translateControls {
+            position: relative;
+            z-index: 30; /* sit above nearby elements when opening dropdown */
+        }
+
+        #translateControls select {
+            -webkit-appearance: menulist; /* keep native look but ensure consistent border */
+            appearance: menulist;
+            background: white;
+            border: 2px solid #dfe6ef; /* slightly darker to improve visual weight */
+            border-radius: 8px;
+            padding: 6px 10px;
+            min-width: 140px;
+        }
+
+        /* Keep action buttons a stable size so they don't compress */
+        .editor-actions .btn {
+            min-width: 78px;
+            padding-left: 12px;
+            padding-right: 12px;
+            text-align: center;
         }
 
         .editor-title {
@@ -334,10 +381,11 @@
             <div class="sidebar">
                 <input type="text" class="search-box" id="searchBox" placeholder="🔍 Search notes...">
                 <button class="new-note-btn" id="newNoteBtn">✨ New Note</button>
-                <div style="margin-top:12px;">
-                    <label class="form-label">Generate note from natural language</label>
-                    <textarea id="generatePrompt" class="form-input" placeholder="Describe what you want (e.g., 'Meeting notes about project X, summarize and suggest 3 tags')" style="min-height:80px"></textarea>
-                    <button id="generateBtn" class="new-note-btn" style="margin-top:8px;">🪄 Generate</button>
+                <div style="margin-top:12px; display:flex; gap:8px; justify-content:center;">
+                    <button id="aiGenerateBtn" class="new-note-btn" style="display:flex; align-items:center; gap:8px; justify-content:center;">
+                        <span style="font-size:18px">🤖</span>
+                        <span>AI generate note</span>
+                    </button>
                 </div>
                 
                 <div class="notes-list" id="notesList">
@@ -346,28 +394,23 @@
             </div>
 
             <div class="note-editor">
-                <div class="editor-header">
+                <div class="editor-header" id="editorHeader" style="display:none;">
                     <h2 class="editor-title" id="editorTitle">Select a note to edit</h2>
-                    <div class="editor-actions" id="editorActions" style="display: none;">
-                        <button class="btn btn-save" id="saveBtn">💾 Save</button>
-                        <button class="btn btn-delete" id="deleteBtn">🗑️ Delete</button>
-                    </div>
-                </div>
-
-                <!-- Moved language / translate / prominent save controls directly under the title -->
-                <div class="editor-top-controls" style="display:none; align-items:center; margin-bottom:16px; gap:12px;">
-                    <div style="display:flex; gap:8px; align-items:center;">
-                        <label class="form-label" style="margin-bottom:0; margin-right:6px; font-weight:600;">Language</label>
-                        <select id="noteLanguage" class="form-input" style="width:160px; padding:8px;">
-                            <option value="en">English</option>
-                            <option value="zh">Chinese (中文)</option>
-                            <option value="es">Spanish</option>
-                            <option value="fr">French</option>
-                            <option value="de">German</option>
-                        </select>
-                        <div style="display:flex; align-items:center; margin-left:8px;">
-                            <select id="noteLanguageSmall" style="display:none"></select>
+                    <div style="display:flex; align-items:center; gap:12px;">
+                        <!-- Translate controls remain in header and visible across modes. JS can disable/enable if needed -->
+                        <div id="translateControls" style="display:none; align-items:center; gap:8px;">
+                            <select id="noteLanguage" class="form-input" style="width:120px; padding:8px;">
+                                <option value="en">English</option>
+                                <option value="zh">Chinese</option>
+                                <option value="es">Spanish</option>
+                                <option value="fr">French</option>
+                                <option value="de">German</option>
+                            </select>
                             <button id="translateBtn" class="btn" style="background:#007bff; color:white; border-radius:8px;">Translate</button>
+                        </div>
+                        <div class="editor-actions" id="editorActions" style="display: none;">
+                            <button class="btn btn-save" id="saveBtn">💾 Save</button>
+                            <!-- Delete button will be created dynamically for View mode -->
                         </div>
                     </div>
                 </div>
@@ -375,6 +418,16 @@
                 <div id="messageArea"></div>
 
                 <div id="editorForm" style="display: none;">
+                    <!-- AI generator description area (shown when in generate mode) -->
+                    <div class="form-group" id="aiGeneratorArea" style="display:none; width:100%; flex-direction:column; gap:8px; padding:10px 12px; background:#fbfbff; border:1px solid #ececff; border-radius:8px;">
+                        <div style="display:flex; align-items:center; justify-content:space-between; width:100%;">
+                            <div style="margin:0; font-size:1.05rem; font-weight:600;">Describe what you want to note</div>
+                            <button id="runGenerateBtn" class="btn" style="background:#6f42c1; color:white; border-radius:8px; align-self:center; padding:8px 14px;">Generate</button>
+                        </div>
+                        <div style="margin-top:8px; width:100%;">
+                            <textarea id="aiDescription" class="form-input" rows="3" placeholder="Briefly describe the note you want (what happened, summary, tone, tags or time)." style="white-space:pre-wrap; word-break:break-word; width:100%;"></textarea>
+                        </div>
+                    </div>
                     <div class="form-group">
                         <label class="form-label" for="noteTitle">Title</label>
                         <input type="text" class="form-input" id="noteTitle" placeholder="Enter note title...">
@@ -440,10 +493,60 @@
 
             bindEvents() {
                 document.getElementById('newNoteBtn').addEventListener('click', () => this.createNewNote());
-                document.getElementById('generateBtn').addEventListener('click', () => this.generateFromPrompt());
+                // AI generate button opens generator in the editor (reuses editor fields)
+                const aiBtn = document.getElementById('aiGenerateBtn');
+                if (aiBtn) aiBtn.addEventListener('click', () => {
+                    // Enter Generate mode: create a fresh note and show only the AI description area.
+                    this.createNewNote();
+                    // show generator area (use flex to keep layout consistent)
+                    const area = document.getElementById('aiGeneratorArea');
+                    if (area) area.style.display = 'flex';
+                    // Keep translate controls visible in header (Generate mode should also allow translation)
+                    const transControls = document.getElementById('translateControls');
+                    if (transControls) transControls.style.display = 'flex';
+                    const editorActions = document.getElementById('editorActions');
+                    if (editorActions) {
+                        // hide delete button (creation/generation modes shouldn't show delete)
+                        editorActions.style.display = 'flex';
+                        const del = document.getElementById('deleteBtn');
+                        if (del) del.style.display = 'none';
+                    }
+                    document.getElementById('editorTitle').textContent = 'Generate with AI';
+                    const desc = document.getElementById('aiDescription');
+                    if (desc) desc.focus();
+                });
+                document.getElementById('generateBtn')?.addEventListener('click', () => this.generateFromPrompt());
+
+                // run generate inside editor
+                const runGen = document.getElementById('runGenerateBtn');
+                if (runGen) runGen.addEventListener('click', async () => {
+                    const desc = document.getElementById('aiDescription').value.trim();
+                    if (!desc) { this.showMessage('Please enter a description for generation', 'error'); return; }
+                    try {
+                        this.showMessage('Generating...', 'loading');
+                        const res = await fetch('/api/notes/generate', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ prompt: desc, language: document.getElementById('noteLanguage').value || 'en' })
+                        });
+                        if (!res.ok) throw new Error('Generation failed');
+                        const gen = await res.json();
+                        this.hideMessage();
+                        // populate editor fields with generated content
+                        document.getElementById('noteTitle').value = gen.title || '';
+                        document.getElementById('noteContent').value = gen.content || '';
+                        document.getElementById('noteTags').value = (gen.tags || []).join(', ');
+                        if (gen.scheduled_at) {
+                            const d = new Date(gen.scheduled_at);
+                            document.getElementById('noteDate').value = d.toISOString().slice(0,10);
+                            document.getElementById('noteTime').value = d.toTimeString().slice(0,5);
+                        }
+                    } catch (e) {
+                        this.showMessage('AI generation failed: ' + e.message, 'error');
+                    }
+                });
                 document.getElementById('saveBtn').addEventListener('click', () => this.saveNote());
-                // main save button (next to Delete) is already bound above
-                document.getElementById('deleteBtn').addEventListener('click', () => this.deleteNote());
+                // delete button is created dynamically per-mode; do not bind here
                 document.getElementById('searchBox').addEventListener('input', (e) => this.searchNotes(e.target.value));
                 
                 // Auto-save on content change (debounced)
@@ -470,7 +573,7 @@
                     }
                 });
 
-                // Translate button behavior
+                // Translate button behavior (binding)
                 const translateBtn = document.getElementById('translateBtn');
                 this._translateState = { applied: false, original: null };
                 if (translateBtn) {
@@ -522,6 +625,7 @@
                         }
                     });
                 }
+                // Don't show translate controls on initial load; header will be shown when editor opens.
             }
 
             async loadNotes() {
@@ -551,7 +655,7 @@
                 }
                 notesList.innerHTML = this.notes.map(note => {
                     const tags = (note.tags || []).map(t => '#' + this.escapeHtml(t)).join(' ');
-                    const dateStr = note.scheduled_at ? new Date(note.scheduled_at).toLocaleString(undefined, {year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}) : this.formatDateMinute(note.updated_at);
+                    const dateStr = note.scheduled_at ? new Date(note.scheduled_at).toLocaleString('en-US', {year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}) : this.formatDateMinute(note.updated_at);
                     return `
                     <div class="note-item ${this.currentNote && this.currentNote.id === note.id ? 'active' : ''}" 
                          data-note-id="${note.id}" onclick="noteTaker.selectNote(${note.id})">
@@ -564,6 +668,13 @@
                     </div>
                     `;
                 }).join('');
+            }
+
+            // format date to minute precision in English (no Chinese characters)
+            formatDateMinute(dateString) {
+                if (!dateString) return '';
+                const d = new Date(dateString);
+                return d.toLocaleString('en-US', {year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'});
             }
 
             async selectNote(noteId) {
@@ -586,6 +697,17 @@
                     document.getElementById('noteDate').value = '';
                     document.getElementById('noteTime').value = '';
                 }
+                // show translation controls and delete in view mode
+                const transControls = document.getElementById('translateControls');
+                if (transControls) transControls.style.display = 'flex';
+                const editorActions = document.getElementById('editorActions');
+                if (editorActions) editorActions.style.display = 'flex';
+                // create Delete button for view mode
+                this.createDeleteButton();
+                // ensure AI generator area is hidden when viewing an existing note
+                const aiArea = document.getElementById('aiGeneratorArea');
+                if (aiArea) aiArea.style.display = 'none';
+
                 // show translation results (if already present) and start polling for translated fields
                 this._updateTranslationUI(note);
                 this._startPollingTranslation(note.id);
@@ -608,10 +730,19 @@
                 document.getElementById('noteTags').value = '';
                 document.getElementById('noteDate').value = '';
                 document.getElementById('noteTime').value = '';
-                // reset translate state and button
+                // reset translate state and button; keep translate controls visible in create mode
                 this._translateState = { applied: false, original: null };
                 const translateBtn = document.getElementById('translateBtn');
                 if (translateBtn) { translateBtn.style.background = '#007bff'; translateBtn.textContent = 'Translate'; translateBtn.disabled = false; }
+                const transControls = document.getElementById('translateControls');
+                if (transControls) transControls.style.display = 'flex';
+                // ensure AI generator area is hidden in create mode
+                const aiArea = document.getElementById('aiGeneratorArea');
+                if (aiArea) aiArea.style.display = 'none';
+                const editorActions = document.getElementById('editorActions');
+                if (editorActions) editorActions.style.display = 'flex';
+                // ensure Delete button not present in create mode
+                this.removeDeleteButton();
                 document.getElementById('editorTitle').textContent = 'New Note';
                 document.getElementById('noteTitle').focus();
                 
@@ -660,20 +791,47 @@
                 document.getElementById('emptyState').style.display = 'none';
                 document.getElementById('editorForm').style.display = 'block';
                 document.getElementById('editorActions').style.display = 'flex';
-                // show our top controls (language + translate + top save)
-                const topControls = document.querySelector('.editor-top-controls');
-                if (topControls) topControls.style.display = 'flex';
+                // show editor header and translate controls
+                const header = document.getElementById('editorHeader');
+                if (header) header.style.display = 'flex';
+                const transControls = document.getElementById('translateControls');
+                if (transControls) transControls.style.display = 'flex';
             }
 
             hideEditor() {
                 document.getElementById('emptyState').style.display = 'block';
                 document.getElementById('editorForm').style.display = 'none';
                 document.getElementById('editorActions').style.display = 'none';
-                const topControls = document.querySelector('.editor-top-controls');
-                if (topControls) topControls.style.display = 'none';
+                // hide editor header and translate controls on initial/empty state
+                const header = document.getElementById('editorHeader');
+                if (header) header.style.display = 'none';
+                const transControls = document.getElementById('translateControls');
+                if (transControls) transControls.style.display = 'none';
                 document.getElementById('editorTitle').textContent = 'Select a note to edit';
                 this.currentNote = null;
                 this._stopPollingTranslation();
+                // remove delete button when leaving editor
+                this.removeDeleteButton();
+            }
+
+            // Create a Delete button inside editorActions if not present
+            createDeleteButton() {
+                const editorActions = document.getElementById('editorActions');
+                if (!editorActions) return;
+                if (document.getElementById('deleteBtn')) return; // already exists
+
+                const btn = document.createElement('button');
+                btn.className = 'btn btn-delete';
+                btn.id = 'deleteBtn';
+                btn.textContent = '🗑️ Delete';
+                btn.addEventListener('click', () => this.deleteNote());
+                editorActions.appendChild(btn);
+            }
+
+            // Remove Delete button from DOM if present
+            removeDeleteButton() {
+                const del = document.getElementById('deleteBtn');
+                if (del && del.parentNode) del.parentNode.removeChild(del);
             }
 
             async saveNote(isAutoSave = false) {
