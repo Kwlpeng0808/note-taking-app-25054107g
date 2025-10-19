@@ -29,12 +29,23 @@ DB_PATH = os.path.join(ROOT_DIR, 'database', 'app.db')
 # ensure database directory exists
 os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
 
-# Allow overriding full DB URI via env var SQLALCHEMY_DATABASE_URI
-app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('SQLALCHEMY_DATABASE_URI', f"sqlite:///{DB_PATH}")
+# Allow switching to Supabase/Postgres via SUPABASE_DATABASE_URL or SUPABASE_API_KEY
+# Preferred order: SUPABASE_DATABASE_URL -> SQLALCHEMY_DATABASE_URI -> local sqlite fallback
+supabase_db = os.getenv('SUPABASE_DATABASE_URL')
+if supabase_db:
+    app.config['SQLALCHEMY_DATABASE_URI'] = supabase_db
+else:
+    app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('SQLALCHEMY_DATABASE_URI', f"sqlite:///{DB_PATH}")
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db.init_app(app)
 with app.app_context():
     db.create_all()
+    # start background translation worker (in-process)
+    try:
+        from src.translation_worker import start_worker
+        start_worker(app)
+    except Exception as e:
+        print('Failed to start translation worker:', e)
 
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')

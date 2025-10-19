@@ -334,6 +334,11 @@
             <div class="sidebar">
                 <input type="text" class="search-box" id="searchBox" placeholder="🔍 Search notes...">
                 <button class="new-note-btn" id="newNoteBtn">✨ New Note</button>
+                <div style="margin-top:12px;">
+                    <label class="form-label">Generate note from natural language</label>
+                    <textarea id="generatePrompt" class="form-input" placeholder="Describe what you want (e.g., 'Meeting notes about project X, summarize and suggest 3 tags')" style="min-height:80px"></textarea>
+                    <button id="generateBtn" class="new-note-btn" style="margin-top:8px;">🪄 Generate</button>
+                </div>
                 
                 <div class="notes-list" id="notesList">
                     <div class="loading">Loading notes...</div>
@@ -349,6 +354,24 @@
                     </div>
                 </div>
 
+                <!-- Moved language / translate / prominent save controls directly under the title -->
+                <div class="editor-top-controls" style="display:none; align-items:center; margin-bottom:16px; gap:12px;">
+                    <div style="display:flex; gap:8px; align-items:center;">
+                        <label class="form-label" style="margin-bottom:0; margin-right:6px; font-weight:600;">Language</label>
+                        <select id="noteLanguage" class="form-input" style="width:160px; padding:8px;">
+                            <option value="en">English</option>
+                            <option value="zh">Chinese (中文)</option>
+                            <option value="es">Spanish</option>
+                            <option value="fr">French</option>
+                            <option value="de">German</option>
+                        </select>
+                        <div style="display:flex; align-items:center; margin-left:8px;">
+                            <select id="noteLanguageSmall" style="display:none"></select>
+                            <button id="translateBtn" class="btn" style="background:#007bff; color:white; border-radius:8px;">Translate</button>
+                        </div>
+                    </div>
+                </div>
+
                 <div id="messageArea"></div>
 
                 <div id="editorForm" style="display: none;">
@@ -360,6 +383,35 @@
                     <div class="form-group">
                         <label class="form-label" for="noteContent">Content</label>
                         <textarea class="form-textarea" id="noteContent" placeholder="Start writing your note..."></textarea>
+                    </div>
+
+
+
+                    <div class="form-group">
+                        <label class="form-label" for="noteTags">Tags (comma-separated)</label>
+                        <input type="text" class="form-input" id="noteTags" placeholder="e.g. work, personal, ideas">
+                    </div>
+
+                    <div class="form-group" style="display:flex; gap:12px; align-items:center;">
+                        <div style="flex:1;">
+                            <label class="form-label" for="noteDate">Date</label>
+                            <input type="date" id="noteDate" class="form-input">
+                        </div>
+                        <div style="width:140px;">
+                            <label class="form-label" for="noteTime">Time</label>
+                            <input type="time" id="noteTime" class="form-input">
+                        </div>
+                    </div>
+
+                    <div style="margin-top:12px;">
+                        <div class="form-group" id="translatedTitleGroup" style="display:none;">
+                            <label class="form-label">Translated Title</label>
+                            <div id="translatedTitleText" style="padding:8px;background:#f4f6fb;border-radius:8px;white-space:normal;word-break:break-word;"></div>
+                        </div>
+                        <div class="form-group" id="translatedContentGroup" style="display:none;">
+                            <label class="form-label">Translated Content</label>
+                            <div id="translatedContentText" style="padding:8px;background:#f4f6fb;border-radius:8px;white-space:pre-wrap;word-break:break-word;"></div>
+                        </div>
                     </div>
                 </div>
 
@@ -377,6 +429,7 @@
                 this.notes = [];
                 this.currentNote = null;
                 this.isLoading = false;
+                this._pollInterval = null;
                 this.init();
             }
 
@@ -387,7 +440,9 @@
 
             bindEvents() {
                 document.getElementById('newNoteBtn').addEventListener('click', () => this.createNewNote());
+                document.getElementById('generateBtn').addEventListener('click', () => this.generateFromPrompt());
                 document.getElementById('saveBtn').addEventListener('click', () => this.saveNote());
+                // main save button (next to Delete) is already bound above
                 document.getElementById('deleteBtn').addEventListener('click', () => this.deleteNote());
                 document.getElementById('searchBox').addEventListener('input', (e) => this.searchNotes(e.target.value));
                 
@@ -404,6 +459,69 @@
                 
                 document.getElementById('noteTitle').addEventListener('input', autoSave);
                 document.getElementById('noteContent').addEventListener('input', autoSave);
+                // enforce maxlength on title
+                const noteTitleEl = document.getElementById('noteTitle');
+                noteTitleEl.setAttribute('maxlength', '50');
+                noteTitleEl.addEventListener('input', () => {
+                    if (noteTitleEl.value.length >= 50) {
+                        // visual hint: small timeout to show message
+                        this.showMessage('Title is limited to 50 characters', 'error');
+                        setTimeout(() => this.hideMessage(), 1500);
+                    }
+                });
+
+                // Translate button behavior
+                const translateBtn = document.getElementById('translateBtn');
+                this._translateState = { applied: false, original: null };
+                if (translateBtn) {
+                    translateBtn.addEventListener('click', async () => {
+                        // if applied, undo
+                        if (this._translateState.applied) {
+                            // restore original values
+                            const o = this._translateState.original || {};
+                            document.getElementById('noteTitle').value = o.title || document.getElementById('noteTitle').value;
+                            document.getElementById('noteContent').value = o.content || document.getElementById('noteContent').value;
+                            document.getElementById('noteTags').value = (o.tags || []).join(', ');
+                            this._translateState.applied = false;
+                            translateBtn.style.background = '#007bff';
+                            translateBtn.textContent = 'Translate';
+                            return;
+                        }
+
+                        // otherwise call translate API
+                        const language = document.getElementById('noteLanguage').value || 'en';
+                        const title = document.getElementById('noteTitle').value || '';
+                        const content = document.getElementById('noteContent').value || '';
+                        const tags = document.getElementById('noteTags').value || '';
+
+                        // save originals
+                        this._translateState.original = { title, content, tags: tags.split(',').map(t => t.trim()).filter(Boolean) };
+
+                        try {
+                            translateBtn.disabled = true;
+                            translateBtn.textContent = 'Translating...';
+                            const res = await fetch('/api/translate', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ title, content, tags: tags ? tags.split(',').map(t=>t.trim()) : [], language })
+                            });
+                            if (!res.ok) throw new Error('Translation failed');
+                            const j = await res.json();
+                            // apply translations to inputs (and respect maxlength for title)
+                            if (j.title) document.getElementById('noteTitle').value = j.title.slice(0,50);
+                            if (j.content) document.getElementById('noteContent').value = j.content;
+                            if (j.tags && Array.isArray(j.tags)) document.getElementById('noteTags').value = j.tags.join(', ');
+
+                            this._translateState.applied = true;
+                            translateBtn.style.background = '#28a745';
+                            translateBtn.textContent = 'Undo Translation';
+                        } catch (e) {
+                            this.showMessage('Translation error: ' + e.message, 'error');
+                        } finally {
+                            translateBtn.disabled = false;
+                        }
+                    });
+                }
             }
 
             async loadNotes() {
@@ -431,15 +549,21 @@
                     notesList.innerHTML = '<div class="empty-state"><p>No notes yet. Create your first note!</p></div>';
                     return;
                 }
-
-                notesList.innerHTML = this.notes.map(note => `
+                notesList.innerHTML = this.notes.map(note => {
+                    const tags = (note.tags || []).map(t => '#' + this.escapeHtml(t)).join(' ');
+                    const dateStr = note.scheduled_at ? new Date(note.scheduled_at).toLocaleString(undefined, {year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}) : this.formatDateMinute(note.updated_at);
+                    return `
                     <div class="note-item ${this.currentNote && this.currentNote.id === note.id ? 'active' : ''}" 
                          data-note-id="${note.id}" onclick="noteTaker.selectNote(${note.id})">
                         <div class="note-title">${this.escapeHtml(note.title || 'Untitled')}</div>
-                        <div class="note-preview">${this.escapeHtml(note.content || 'No content')}</div>
-                        <div class="note-date">${this.formatDate(note.updated_at)}</div>
+                        <div class="note-preview">${this.escapeHtml(note.translated_content || note.content || 'No content')}</div>
+                        <div class="note-meta">
+                            <div class="note-tags">${tags}</div>
+                            <div class="note-date">${dateStr}</div>
+                        </div>
                     </div>
-                `).join('');
+                    `;
+                }).join('');
             }
 
             async selectNote(noteId) {
@@ -452,6 +576,19 @@
                 
                 document.getElementById('noteTitle').value = note.title || '';
                 document.getElementById('noteContent').value = note.content || '';
+                document.getElementById('noteLanguage').value = note.language || 'en';
+                document.getElementById('noteTags').value = (note.tags || []).join(', ');
+                if (note.scheduled_at) {
+                    const d = new Date(note.scheduled_at);
+                    document.getElementById('noteDate').value = d.toISOString().slice(0,10);
+                    document.getElementById('noteTime').value = d.toTimeString().slice(0,5);
+                } else {
+                    document.getElementById('noteDate').value = '';
+                    document.getElementById('noteTime').value = '';
+                }
+                // show translation results (if already present) and start polling for translated fields
+                this._updateTranslationUI(note);
+                this._startPollingTranslation(note.id);
                 document.getElementById('editorTitle').textContent = note.title || 'Untitled Note';
             }
 
@@ -467,6 +604,14 @@
                 this.showEditor();
                 document.getElementById('noteTitle').value = '';
                 document.getElementById('noteContent').value = '';
+                // reset tags and date/time and translate state
+                document.getElementById('noteTags').value = '';
+                document.getElementById('noteDate').value = '';
+                document.getElementById('noteTime').value = '';
+                // reset translate state and button
+                this._translateState = { applied: false, original: null };
+                const translateBtn = document.getElementById('translateBtn');
+                if (translateBtn) { translateBtn.style.background = '#007bff'; translateBtn.textContent = 'Translate'; translateBtn.disabled = false; }
                 document.getElementById('editorTitle').textContent = 'New Note';
                 document.getElementById('noteTitle').focus();
                 
@@ -474,20 +619,61 @@
                 document.querySelectorAll('.note-item').forEach(item => {
                     item.classList.remove('active');
                 });
+                // reset translation UI
+                this._stopPollingTranslation();
+                this._clearTranslationUI();
+            }
+
+            async generateFromPrompt() {
+                const prompt = document.getElementById('generatePrompt').value.trim();
+                if (!prompt) {
+                    this.showMessage('Please enter a prompt for generation', 'error');
+                    return;
+                }
+
+                try {
+                    this.showMessage('Generating note...', 'loading');
+                    const res = await fetch('/api/notes/generate', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ prompt })
+                    });
+                    if (!res.ok) throw new Error('Generation failed');
+                    const gen = await res.json();
+                    this.hideMessage();
+                    // prefill editor
+                    this.createNewNote();
+                    document.getElementById('noteTitle').value = gen.title || '';
+                    document.getElementById('noteContent').value = gen.content || '';
+                    document.getElementById('noteTags').value = (gen.tags || []).join(', ');
+                    if (gen.scheduled_at) {
+                        const d = new Date(gen.scheduled_at);
+                        document.getElementById('noteDate').value = d.toISOString().slice(0,10);
+                        document.getElementById('noteTime').value = d.toTimeString().slice(0,5);
+                    }
+                } catch (e) {
+                    this.showMessage('Generation failed: ' + e.message, 'error');
+                }
             }
 
             showEditor() {
                 document.getElementById('emptyState').style.display = 'none';
                 document.getElementById('editorForm').style.display = 'block';
                 document.getElementById('editorActions').style.display = 'flex';
+                // show our top controls (language + translate + top save)
+                const topControls = document.querySelector('.editor-top-controls');
+                if (topControls) topControls.style.display = 'flex';
             }
 
             hideEditor() {
                 document.getElementById('emptyState').style.display = 'block';
                 document.getElementById('editorForm').style.display = 'none';
                 document.getElementById('editorActions').style.display = 'none';
+                const topControls = document.querySelector('.editor-top-controls');
+                if (topControls) topControls.style.display = 'none';
                 document.getElementById('editorTitle').textContent = 'Select a note to edit';
                 this.currentNote = null;
+                this._stopPollingTranslation();
             }
 
             async saveNote(isAutoSave = false) {
@@ -495,6 +681,16 @@
 
                 const title = document.getElementById('noteTitle').value.trim();
                 const content = document.getElementById('noteContent').value.trim();
+                const language = document.getElementById('noteLanguage').value;
+                // Translate-on-save checkbox was removed; saving should persist current editor contents.
+                const translate = false;
+                const tags = document.getElementById('noteTags').value.trim();
+                const date = document.getElementById('noteDate').value; // YYYY-MM-DD
+                const time = document.getElementById('noteTime').value; // HH:MM
+                let scheduled_at = null;
+                if (date) {
+                    scheduled_at = date + (time ? 'T' + time : 'T00:00');
+                }
 
                 if (!title && !content) {
                     if (!isAutoSave) {
@@ -506,7 +702,11 @@
                 try {
                     const noteData = {
                         title: title || 'Untitled',
-                        content: content
+                        content: content,
+                        language: language || null,
+                        translate: translate,
+                        tags: tags || null,
+                        scheduled_at: scheduled_at || null
                     };
 
                     let response;
@@ -541,6 +741,9 @@
                     
                     this.renderNotesList();
                     document.getElementById('editorTitle').textContent = savedNote.title;
+                    // start polling for translation updates (if pending)
+                    this._startPollingTranslation(savedNote.id);
+                    this._updateTranslationUI(savedNote);
                     
                     if (!isAutoSave) {
                         this.showMessage('Note saved successfully!', 'success');
@@ -629,6 +832,80 @@
                 } else {
                     return date.toLocaleDateString();
                 }
+            }
+
+            // Translation polling helpers
+            _startPollingTranslation(noteId) {
+                this._stopPollingTranslation();
+                // poll every 2 seconds
+                this._pollInterval = setInterval(async () => {
+                    try {
+                        const res = await fetch(`/api/notes/${noteId}`);
+                        if (!res.ok) return;
+                        const note = await res.json();
+                        this.currentNote = note;
+                        this._updateTranslationUI(note);
+                        // if translation completed or failed, stop polling
+                        if (note.translation_status && ['completed','failed'].includes(note.translation_status)) {
+                            this._stopPollingTranslation();
+                        }
+                    } catch (e) {
+                        console.error('Polling error', e);
+                    }
+                }, 2000);
+            }
+
+            _stopPollingTranslation() {
+                if (this._pollInterval) {
+                    clearInterval(this._pollInterval);
+                    this._pollInterval = null;
+                }
+            }
+
+            _updateTranslationUI(note) {
+                // Defensive: ensure translation area and groups exist before updating
+                const area = document.getElementById('translationArea');
+                if (!area) return;
+
+                let hasTranslation = false;
+
+                const titleGroup = document.getElementById('translatedTitleGroup');
+                const titleText = document.getElementById('translatedTitleText');
+                if (titleGroup && titleText && note.translated_title) {
+                    titleGroup.style.display = 'block';
+                    titleText.textContent = note.translated_title;
+                    hasTranslation = true;
+                } else if (titleGroup && titleText) {
+                    titleGroup.style.display = 'none';
+                    titleText.textContent = '';
+                }
+
+                const contentGroup = document.getElementById('translatedContentGroup');
+                const contentText = document.getElementById('translatedContentText');
+                if (contentGroup && contentText && note.translated_content) {
+                    contentGroup.style.display = 'block';
+                    contentText.textContent = note.translated_content;
+                    hasTranslation = true;
+                } else if (contentGroup && contentText) {
+                    contentGroup.style.display = 'none';
+                    contentText.textContent = '';
+                }
+
+                // show/hide the whole translation area depending on whether any translated content exists
+                area.style.display = hasTranslation ? 'block' : 'none';
+            }
+
+            _clearTranslationUI() {
+                const area = document.getElementById('translationArea');
+                if (area) area.style.display = 'none';
+                const titleGroup = document.getElementById('translatedTitleGroup');
+                const contentGroup = document.getElementById('translatedContentGroup');
+                const titleText = document.getElementById('translatedTitleText');
+                const contentText = document.getElementById('translatedContentText');
+                if (titleGroup) titleGroup.style.display = 'none';
+                if (contentGroup) contentGroup.style.display = 'none';
+                if (titleText) titleText.textContent = '';
+                if (contentText) contentText.textContent = '';
             }
         }
 
