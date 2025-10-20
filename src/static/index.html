@@ -69,6 +69,8 @@
             backdrop-filter: blur(10px);
             display: flex;
             flex-direction: column;
+            min-height: 420px; /* give editor area enough vertical space for centered empty state */
+            position: relative; /* allow absolute centering of the empty state */
         }
 
         .search-box {
@@ -195,8 +197,9 @@
             background: white;
             border: 2px solid #dfe6ef; /* slightly darker to improve visual weight */
             border-radius: 8px;
-            padding: 6px 10px;
-            min-width: 140px;
+            padding: 6px 8px;
+            box-sizing: border-box; /* ensure padding/border are included in width */
+            min-width: 120px; /* allow narrower select so inline width:100px works */
         }
 
         /* Keep action buttons a stable size so they don't compress */
@@ -264,12 +267,72 @@
             border: 2px solid #e1e5e9;
             border-radius: 10px;
             font-size: 16px;
+            font-family: inherit; /* ensure inputs use the same font as body */
             transition: border-color 0.3s ease;
+        }
+
+        /* container to hold an input and an inline counter at the right */
+        .input-with-counter {
+            position: relative;
+            display: block;
+        }
+
+        .input-with-counter .form-input {
+            padding-right: 72px; /* space for inline counter */
+        }
+
+        .input-with-counter .char-counter.inline {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: transparent;
+            box-shadow: none;
+            pointer-events: none;
+            color: #666;
+            font-weight: 600;
+            padding: 2px 6px;
+            border-radius: 6px;
+            font-size: 12px;
+        }
+
+        /* red state for inline counters */
+        .input-with-counter .char-counter.inline.limit {
+            color: #c82333;
+            font-weight: 800;
         }
 
         .form-input:focus {
             outline: none;
             border-color: #667eea;
+        }
+
+        /* Unified placeholder styling for inputs and textareas */
+        .form-input::placeholder,
+        .form-textarea::placeholder,
+        .search-box::placeholder,
+        textarea::placeholder {
+            color: #6c757d; /* muted, readable gray */
+            opacity: 1; /* ensure consistent visibility across browsers */
+            font-family: inherit;
+            font-weight: 400;
+            font-size: 0.95rem;
+            font-style: normal;
+        }
+
+        /* Vendor-prefixed fallbacks for older browsers */
+        .form-input::-webkit-input-placeholder,
+        .form-textarea::-webkit-input-placeholder,
+        .search-box::-webkit-input-placeholder {
+            color: #6c757d;
+            opacity: 1;
+        }
+
+        .form-input:-ms-input-placeholder,
+        .form-textarea:-ms-input-placeholder,
+        .search-box:-ms-input-placeholder {
+            color: #6c757d;
+            opacity: 1;
         }
 
         .form-textarea {
@@ -279,12 +342,63 @@
             border: 2px solid #e1e5e9;
             border-radius: 10px;
             font-size: 16px;
-            font-family: inherit;
+            font-family: inherit; /* ensure textarea uses the same font as body */
             resize: vertical;
             transition: border-color 0.3s ease;
             line-height: 1.6;
         }
 
+        /* Improve wrapping for mixed CJK/Latin text and avoid awkward ragged breaks */
+        .form-textarea,
+        textarea.form-input {
+            /* Make wrapping more consistent for mixed CJK + Latin text */
+            overflow-wrap: anywhere; /* allow breaks at convenient points */
+            word-break: break-word;  /* permit breaking long words but avoid overly aggressive breaks */
+            white-space: pre-wrap;   /* keep newlines but wrap long lines */
+            hyphens: auto;
+        }
+
+        /* container for textarea (no absolute positioning needed when counter is external) */
+        .textarea-container textarea {
+            /* keep default padding from .form-textarea; no extra inset for counter required */
+            padding-right: 15px;
+            padding-bottom: 15px;
+        }
+
+        /* character counter badge positioned inside textarea container */
+        .textarea-container {
+            position: relative;
+
+
+        .char-counter {
+            /* Inline counter shown below textarea, right-aligned via container */
+            float: right;
+            background: rgba(255,255,255,0.95);
+            color: #444;
+            padding: 4px 8px;
+            border-radius: 8px;
+            font-size: 12px;
+            pointer-events: none;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+        }
+
+        /* Visual state when the counter hits the configured maxlength */
+        .char-counter.limit {
+            background: rgba(255,245,245,0.98);
+            color: #c82333; /* bootstrap danger-ish red */
+            font-weight: 700;
+            box-shadow: 0 1px 2px rgba(200,35,51,0.08);
+            border: 1px solid rgba(200,35,51,0.12);
+        }
+
+        /* (removed) warn state — counters only show red at maxlength now */
+
+        /* Ensure form-group containers clear floated counters */
+        .form-group::after {
+            content: '';
+            display: block;
+            clear: both;
+        }
         .form-textarea:focus {
             outline: none;
             border-color: #667eea;
@@ -294,6 +408,48 @@
             text-align: center;
             padding: 60px 20px;
             color: #666;
+        }
+
+        /* Center the editor empty-state both vertically and horizontally within the editor area */
+        /* Center empty state using a toggleable class on the editor container */
+        .note-editor #emptyState {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            padding: 0;
+        }
+
+        /* When the editor has no content, add this class to center the empty-state vertically */
+        .note-editor.center-empty {
+            justify-content: center;
+            align-items: center;
+        }
+        /* Ensure the empty-state fills the editor horizontally and its text centers */
+        .note-editor.center-empty .empty-state {
+            width: 100%;
+            text-align: center;
+            padding: 40px 24px; /* comfortable vertical spacing */
+            box-sizing: border-box;
+        }
+        /* Strong rule: absolutely center the emptyState element when the editor is in center-empty mode */
+        .note-editor.center-empty #emptyState {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: calc(100% - 50px);
+            box-sizing: border-box;
+            padding: 24px 24px;
+        }
+        /* Strong override to ensure centering works across browsers and specificity */
+        .note-editor.center-empty #emptyState {
+            position: absolute !important;
+            top: 50% !important;
+            left: 50% !important;
+            transform: translate(-50%, -50%) !important;
+            width: calc(100% - 50px) !important;
+            text-align: center !important;
         }
 
         .empty-state h3 {
@@ -313,21 +469,91 @@
         }
 
         .error {
+            /* kept for backward compatibility when JS inserts raw .error divs */
+            display: block;
             background: #f8d7da;
             color: #721c24;
             padding: 12px 15px;
             border-radius: 8px;
             margin-bottom: 20px;
             border: 1px solid #f5c6cb;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+            font-weight: 600;
+            max-width: calc(100% - 24px);
+            box-sizing: border-box;
         }
 
         .success {
+            display: block;
             background: #d4edda;
             color: #155724;
             padding: 12px 15px;
             border-radius: 8px;
             margin-bottom: 20px;
             border: 1px solid #c3e6cb;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+            font-weight: 600;
+            max-width: calc(100% - 24px);
+            box-sizing: border-box;
+        }
+
+        /* Generic message wrapper used by JS. Use role=alert for screen readers when appropriate. */
+        .message {
+            display: block;
+            padding: 12px 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-weight: 600;
+            max-width: calc(100% - 24px);
+            box-sizing: border-box;
+        }
+
+        .message.loading {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeeba;
+        }
+
+        .message.error {
+            background: #fff6f6;
+            color: #721c24;
+            border: 1px solid rgba(200,35,51,0.12);
+            padding: 12px 15px;
+            border-left: 6px solid #c82333; /* accent bar */
+            font-size: 0.98rem;
+            box-sizing: border-box;
+            max-width: calc(100% - 24px);
+        }
+
+        /* subtle fade-in for messages */
+        @keyframes messageFadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+        .message { animation: messageFadeIn 180ms ease both; }
+
+        .message.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        /* Stronger, higher-specificity rules to ensure the editor's message area shows a clear box */
+        #messageArea .message {
+            display: block !important;
+            background: #fffaf9; /* slightly warm neutral to contrast over white editor background */
+            color: #333333;
+            border: 1px solid rgba(0,0,0,0.06);
+            padding: 12px 16px !important;
+            border-radius: 8px !important;
+            margin-bottom: 14px !important;
+            box-shadow: 0 6px 18px rgba(0,0,0,0.06);
+            max-width: 100% !important;
+            box-sizing: border-box !important;
+        }
+
+        #messageArea .message.error {
+            background: #fff2f2 !important;
+            color: #721c24 !important;
+            border: 1px solid rgba(200,35,51,0.18) !important;
+            border-left: 6px solid #c82333 !important;
         }
 
         /* Responsive Design */
@@ -379,7 +605,10 @@
 
         <div class="main-content">
             <div class="sidebar">
-                <input type="text" class="search-box" id="searchBox" placeholder="🔍 Search notes...">
+                <div class="input-with-counter">
+                    <input type="text" class="search-box form-input" id="searchBox" placeholder="🔍 Search notes..." maxlength="50">
+                    <div class="char-counter inline" id="searchCounter">0/50</div>
+                </div>
                 <button class="new-note-btn" id="newNoteBtn">✨ New Note</button>
                 <div style="margin-top:12px; display:flex; gap:8px; justify-content:center;">
                     <button id="aiGenerateBtn" class="new-note-btn" style="display:flex; align-items:center; gap:8px; justify-content:center;">
@@ -393,7 +622,7 @@
                 </div>
             </div>
 
-            <div class="note-editor">
+            <div class="note-editor center-empty">
                 <div class="editor-header" id="editorHeader" style="display:none;">
                     <h2 class="editor-title" id="editorTitle">Select a note to edit</h2>
                     <div style="display:flex; align-items:center; gap:12px;">
@@ -407,6 +636,7 @@
                                 <option value="de">German</option>
                             </select>
                             <button id="translateBtn" class="btn" style="background:#007bff; color:white; border-radius:8px;">Translate</button>
+                            <button id="undoTranslateBtn" class="btn" style="background:#6c757d; color:white; border-radius:8px; display:none;">Undo</button>
                         </div>
                         <div class="editor-actions" id="editorActions" style="display: none;">
                             <button class="btn btn-save" id="saveBtn">💾 Save</button>
@@ -417,6 +647,11 @@
 
                 <div id="messageArea"></div>
 
+                <div id="emptyState" class="empty-state">
+                    <h3>Welcome to NoteTaker!</h3>
+                    <p>Select an existing note or create a new one to get started.</p>
+                </div>
+
                 <div id="editorForm" style="display: none;">
                     <!-- AI generator description area (shown when in generate mode) -->
                     <div class="form-group" id="aiGeneratorArea" style="display:none; width:100%; flex-direction:column; gap:8px; padding:10px 12px; background:#fbfbff; border:1px solid #ececff; border-radius:8px;">
@@ -424,18 +659,25 @@
                             <div style="margin:0; font-size:1.05rem; font-weight:600;">Describe what you want to note</div>
                             <button id="runGenerateBtn" class="btn" style="background:#6f42c1; color:white; border-radius:8px; align-self:center; padding:8px 14px;">Generate</button>
                         </div>
-                        <div style="margin-top:8px; width:100%;">
-                            <textarea id="aiDescription" class="form-input" rows="3" placeholder="Briefly describe the note you want (what happened, summary, tone, tags or time)." style="white-space:pre-wrap; word-break:break-word; width:100%;"></textarea>
-                        </div>
+                        <div style="margin-top:8px; width:100%;" class="textarea-container">
+                                <textarea id="aiDescription" class="form-input" rows="3" maxlength="500" placeholder="Briefly describe the note you want (what happened, summary, tone, tags or time)." style="white-space:pre-wrap; word-break:break-word; width:100%;"></textarea>
+                            </div>
+                            <div class="char-counter" id="aiDescCounter">0/500</div>
                     </div>
                     <div class="form-group">
                         <label class="form-label" for="noteTitle">Title</label>
-                        <input type="text" class="form-input" id="noteTitle" placeholder="Enter note title...">
+                        <div class="input-with-counter">
+                            <input type="text" class="form-input" id="noteTitle" placeholder="Enter note title..." maxlength="50">
+                            <div class="char-counter inline" id="titleCounter">0/50</div>
+                        </div>
                     </div>
 
                     <div class="form-group">
                         <label class="form-label" for="noteContent">Content</label>
-                        <textarea class="form-textarea" id="noteContent" placeholder="Start writing your note..."></textarea>
+                        <div class="textarea-container">
+                            <textarea class="form-textarea" id="noteContent" maxlength="5000" placeholder="Start writing your note..."></textarea>
+                        </div>
+                        <div class="char-counter" id="contentCounter">0/5000</div>
                     </div>
 
 
@@ -468,10 +710,7 @@
                     </div>
                 </div>
 
-                <div class="empty-state" id="emptyState">
-                    <h3>Welcome to NoteTaker!</h3>
-                    <p>Select an existing note or create a new one to get started.</p>
-                </div>
+                
             </div>
         </div>
     </div>
@@ -489,6 +728,32 @@
             async init() {
                 this.bindEvents();
                 await this.loadNotes();
+                // Ensure empty-state is visually centered after initial load
+                try {
+                    this._ensureCenteredEmptyState();
+                } catch (e) {
+                    /* ignore */
+                }
+            }
+
+            _ensureCenteredEmptyState() {
+                const editor = document.querySelector('.note-editor');
+                const empty = document.getElementById('emptyState');
+                if (!editor || !empty) return;
+                // If editor form is hidden (no note selected / initial empty state), force centering
+                const editorForm = document.getElementById('editorForm');
+                const formHidden = editorForm && (editorForm.style.display === 'none' || getComputedStyle(editorForm).display === 'none');
+                if (formHidden) {
+                    editor.classList.add('center-empty');
+                    // Apply inline styles similar to the console workaround so it's robust against CSS specificity issues
+                    empty.style.position = 'absolute';
+                    empty.style.top = '50%';
+                    empty.style.left = '50%';
+                    empty.style.transform = 'translate(-50%, -50%)';
+                    empty.style.width = 'calc(100% - 50px)';
+                    empty.style.boxSizing = 'border-box';
+                    empty.style.textAlign = 'center';
+                }
             }
 
             bindEvents() {
@@ -541,6 +806,8 @@
                             document.getElementById('noteDate').value = d.toISOString().slice(0,10);
                             document.getElementById('noteTime').value = d.toTimeString().slice(0,5);
                         }
+                        // refresh counters to reflect generated content
+                        this._refreshCounters();
                     } catch (e) {
                         this.showMessage('AI generation failed: ' + e.message, 'error');
                     }
@@ -548,57 +815,126 @@
                 document.getElementById('saveBtn').addEventListener('click', () => this.saveNote());
                 // delete button is created dynamically per-mode; do not bind here
                 document.getElementById('searchBox').addEventListener('input', (e) => this.searchNotes(e.target.value));
+                document.getElementById('searchBox').addEventListener('focus', () => this.hideMessage());
                 
-                // Auto-save on content change (debounced)
-                let saveTimeout;
-                const autoSave = () => {
-                    clearTimeout(saveTimeout);
-                    saveTimeout = setTimeout(() => {
-                        if (this.currentNote && this.currentNote.id) {
-                            this.saveNote(true);
-                        }
-                    }, 2000);
-                };
-                
-                document.getElementById('noteTitle').addEventListener('input', autoSave);
-                document.getElementById('noteContent').addEventListener('input', autoSave);
-                // enforce maxlength on title
+                // Auto-save intentionally removed: saving requires explicit user action (Save button)
+                // enforce maxlength on title and show inline counter
                 const noteTitleEl = document.getElementById('noteTitle');
-                noteTitleEl.setAttribute('maxlength', '50');
-                noteTitleEl.addEventListener('input', () => {
-                    if (noteTitleEl.value.length >= 50) {
-                        // visual hint: small timeout to show message
-                        this.showMessage('Title is limited to 50 characters', 'error');
-                        setTimeout(() => this.hideMessage(), 1500);
-                    }
-                });
+                if (noteTitleEl) {
+                    noteTitleEl.setAttribute('maxlength', '50');
+                    const titleCounter = document.getElementById('titleCounter');
+                    const updateTitle = () => {
+                        const maxT = parseInt(noteTitleEl.getAttribute('maxlength') || '50', 10);
+                        if (noteTitleEl.value.length > maxT) noteTitleEl.value = noteTitleEl.value.slice(0, maxT);
+                        if (titleCounter) {
+                            titleCounter.textContent = `${noteTitleEl.value.length}/${maxT}`;
+                            if (noteTitleEl.value.length >= maxT) titleCounter.classList.add('limit'); else titleCounter.classList.remove('limit');
+                        }
+                    };
+                    noteTitleEl.addEventListener('input', updateTitle);
+                    // init
+                    updateTitle();
+                }
+
+                // Ensure counters reflect current values after any programmatic changes
+                // _refreshCounters defined below will update counters — call once at end of bindEvents
+                if (typeof this._refreshCounters === 'function') this._refreshCounters();
+
+                // enforce maxlength and gentle feedback for content, AI description and search
+                const noteContentEl = document.getElementById('noteContent');
+                const aiDescriptionEl = document.getElementById('aiDescription');
+                const searchBoxEl = document.getElementById('searchBox');
+
+                const showLimitMsg = (msg) => {
+                    this.showMessage(msg, 'error');
+                    setTimeout(() => this.hideMessage(), 1400);
+                };
+
+                if (noteContentEl) {
+                    const maxC = parseInt(noteContentEl.getAttribute('maxlength') || '5000', 10);
+                    const counter = document.getElementById('contentCounter');
+                    const updateContent = () => {
+                        if (noteContentEl.value.length > maxC) {
+                            // hard truncate to maxlength
+                            noteContentEl.value = noteContentEl.value.slice(0, maxC);
+                        }
+                        if (counter) {
+                            counter.textContent = `${noteContentEl.value.length}/${maxC}`;
+                            // only indicate red when hitting maxlength
+                            if (noteContentEl.value.length >= maxC) {
+                                counter.classList.add('limit');
+                            } else {
+                                counter.classList.remove('limit');
+                            }
+                        }
+                    };
+                    noteContentEl.addEventListener('input', () => {
+                        updateContent();
+                    });
+                    // initialize counter
+                    updateContent();
+                }
+
+                if (aiDescriptionEl) {
+                    const maxA = parseInt(aiDescriptionEl.getAttribute('maxlength') || '500', 10);
+                    const counterA = document.getElementById('aiDescCounter');
+                    const updateAI = () => {
+                        if (aiDescriptionEl.value.length > maxA) {
+                            aiDescriptionEl.value = aiDescriptionEl.value.slice(0, maxA);
+                        }
+                            if (counterA) {
+                                counterA.textContent = `${aiDescriptionEl.value.length}/${maxA}`;
+                                if (aiDescriptionEl.value.length >= maxA) counterA.classList.add('limit'); else counterA.classList.remove('limit');
+                            }
+                    };
+                    aiDescriptionEl.addEventListener('input', () => {
+                        updateAI();
+                    });
+                    // initialize counter
+                    updateAI();
+                }
+
+                if (searchBoxEl) {
+                    const maxS = parseInt(searchBoxEl.getAttribute('maxlength') || '100', 10);
+                    const counterS = document.getElementById('searchCounter');
+                    if (counterS) counterS.textContent = `${searchBoxEl.value.length}/${maxS}`;
+                    searchBoxEl.addEventListener('input', () => {
+                        if (searchBoxEl.value.length >= maxS) {
+                            searchBoxEl.value = searchBoxEl.value.slice(0, maxS);
+                            // reflect limit visually via counter (no intrusive popup)
+                            if (counterS) counterS.classList.add('limit');
+                            counterS.textContent = `${searchBoxEl.value.length}/${maxS}`;
+                        } else {
+                            if (counterS) {
+                                counterS.classList.remove('limit');
+                                counterS.textContent = `${searchBoxEl.value.length}/${maxS}`;
+                            }
+                        }
+                    });
+                }
 
                 // Translate button behavior (binding)
                 const translateBtn = document.getElementById('translateBtn');
-                this._translateState = { applied: false, original: null };
+                const undoTranslateBtn = document.getElementById('undoTranslateBtn');
+                // translateState.original holds the original (pre-translation) values so Undo can restore once
+                this._translateState = { original: null, hasOriginal: false };
+
                 if (translateBtn) {
                     translateBtn.addEventListener('click', async () => {
-                        // if applied, undo
-                        if (this._translateState.applied) {
-                            // restore original values
-                            const o = this._translateState.original || {};
-                            document.getElementById('noteTitle').value = o.title || document.getElementById('noteTitle').value;
-                            document.getElementById('noteContent').value = o.content || document.getElementById('noteContent').value;
-                            document.getElementById('noteTags').value = (o.tags || []).join(', ');
-                            this._translateState.applied = false;
-                            translateBtn.style.background = '#007bff';
-                            translateBtn.textContent = 'Translate';
-                            return;
-                        }
-
-                        // otherwise call translate API
+                        // always perform translation for the currently-selected language
                         const language = document.getElementById('noteLanguage').value || 'en';
-                        const title = document.getElementById('noteTitle').value || '';
-                        const content = document.getElementById('noteContent').value || '';
-                        const tags = document.getElementById('noteTags').value || '';
+                        const titleEl = document.getElementById('noteTitle');
+                        const contentEl = document.getElementById('noteContent');
+                        const tagsEl = document.getElementById('noteTags');
+                        const title = titleEl.value || '';
+                        const content = contentEl.value || '';
+                        const tags = tagsEl.value || '';
 
-                        // save originals
-                        this._translateState.original = { title, content, tags: tags.split(',').map(t => t.trim()).filter(Boolean) };
+                        // Save originals once (first translation), so Undo restores the pre-translation content
+                        if (!this._translateState.hasOriginal) {
+                            this._translateState.original = { title, content, tags: tags.split(',').map(t=>t.trim()).filter(Boolean) };
+                            this._translateState.hasOriginal = true;
+                        }
 
                         try {
                             translateBtn.disabled = true;
@@ -611,34 +947,83 @@
                             if (!res.ok) throw new Error('Translation failed');
                             const j = await res.json();
                             // apply translations to inputs (and respect maxlength for title)
-                            if (j.title) document.getElementById('noteTitle').value = j.title.slice(0,50);
-                            if (j.content) document.getElementById('noteContent').value = j.content;
-                            if (j.tags && Array.isArray(j.tags)) document.getElementById('noteTags').value = j.tags.join(', ');
+                            if (j.title) titleEl.value = j.title.slice(0,50);
+                            if (j.content) contentEl.value = j.content;
+                            if (j.tags && Array.isArray(j.tags)) tagsEl.value = j.tags.join(', ');
 
-                            this._translateState.applied = true;
-                            translateBtn.style.background = '#28a745';
-                            translateBtn.textContent = 'Undo Translation';
+                            // show the Undo button (so user can revert to original)
+                            if (undoTranslateBtn) undoTranslateBtn.style.display = 'inline-flex';
                         } catch (e) {
                             this.showMessage('Translation error: ' + e.message, 'error');
                         } finally {
                             translateBtn.disabled = false;
+                            translateBtn.textContent = 'Translate';
                         }
+                    });
+                }
+
+                if (undoTranslateBtn) {
+                    undoTranslateBtn.addEventListener('click', () => {
+                        const o = this._translateState.original || {};
+                        document.getElementById('noteTitle').value = o.title || document.getElementById('noteTitle').value;
+                        document.getElementById('noteContent').value = o.content || document.getElementById('noteContent').value;
+                        document.getElementById('noteTags').value = (o.tags || []).join(', ');
+                        // hide undo and clear original state so new translations will re-record original when needed
+                        undoTranslateBtn.style.display = 'none';
+                        this._translateState.original = null;
+                        this._translateState.hasOriginal = false;
                     });
                 }
                 // Don't show translate controls on initial load; header will be shown when editor opens.
             }
 
+            _refreshCounters() {
+                try {
+                    const noteTitleEl = document.getElementById('noteTitle');
+                    const titleCounter = document.getElementById('titleCounter');
+                    if (noteTitleEl && titleCounter) {
+                        const maxT = parseInt(noteTitleEl.getAttribute('maxlength') || '50', 10);
+                        titleCounter.textContent = `${noteTitleEl.value.length}/${maxT}`;
+                        if (noteTitleEl.value.length >= maxT) titleCounter.classList.add('limit'); else titleCounter.classList.remove('limit');
+                    }
+
+                    const noteContentEl = document.getElementById('noteContent');
+                    const contentCounter = document.getElementById('contentCounter');
+                    if (noteContentEl && contentCounter) {
+                        const maxC = parseInt(noteContentEl.getAttribute('maxlength') || '5000', 10);
+                        contentCounter.textContent = `${noteContentEl.value.length}/${maxC}`;
+                        if (noteContentEl.value.length >= maxC) contentCounter.classList.add('limit'); else contentCounter.classList.remove('limit');
+                    }
+
+                    const aiDescriptionEl = document.getElementById('aiDescription');
+                    const aiCounter = document.getElementById('aiDescCounter');
+                    if (aiDescriptionEl && aiCounter) {
+                        const maxA = parseInt(aiDescriptionEl.getAttribute('maxlength') || '500', 10);
+                        aiCounter.textContent = `${aiDescriptionEl.value.length}/${maxA}`;
+                        if (aiDescriptionEl.value.length >= maxA) aiCounter.classList.add('limit'); else aiCounter.classList.remove('limit');
+                    }
+
+                    const searchBoxEl = document.getElementById('searchBox');
+                    const searchCounter = document.getElementById('searchCounter');
+                    if (searchBoxEl && searchCounter) {
+                        const maxS = parseInt(searchBoxEl.getAttribute('maxlength') || '50', 10);
+                        searchCounter.textContent = `${searchBoxEl.value.length}/${maxS}`;
+                        if (searchBoxEl.value.length >= maxS) searchCounter.classList.add('limit'); else searchCounter.classList.remove('limit');
+                    }
+                } catch (e) {
+                    // silent
+                }
+            }
+
             async loadNotes() {
                 this.isLoading = true;
-                this.showMessage('Loading notes...', 'loading');
-                
+
                 try {
                     const response = await fetch('/api/notes');
                     if (!response.ok) throw new Error('Failed to load notes');
-                    
+
                     this.notes = await response.json();
                     this.renderNotesList();
-                    this.hideMessage();
                 } catch (error) {
                     this.showMessage(`Error loading notes: ${error.message}`, 'error');
                 } finally {
@@ -647,6 +1032,8 @@
             }
 
             renderNotesList() {
+                // Clear any transient messages when changing the notes list (navigation-like action)
+                this.hideMessage();
                 const notesList = document.getElementById('notesList');
                 
                 if (this.notes.length === 0) {
@@ -678,6 +1065,9 @@
             }
 
             async selectNote(noteId) {
+                // Clear any previous UI messages when navigating to a different note
+                this.hideMessage();
+
                 const note = this.notes.find(n => n.id === noteId);
                 if (!note) return;
 
@@ -700,6 +1090,9 @@
                 // show translation controls and delete in view mode
                 const transControls = document.getElementById('translateControls');
                 if (transControls) transControls.style.display = 'flex';
+                // hide Undo button (it will be shown only after a translation is applied)
+                const undoTranslateBtn = document.getElementById('undoTranslateBtn');
+                if (undoTranslateBtn) undoTranslateBtn.style.display = 'none';
                 const editorActions = document.getElementById('editorActions');
                 if (editorActions) editorActions.style.display = 'flex';
                 // create Delete button for view mode
@@ -711,10 +1104,15 @@
                 // show translation results (if already present) and start polling for translated fields
                 this._updateTranslationUI(note);
                 this._startPollingTranslation(note.id);
+                // refresh inline counters after populating fields
+                this._refreshCounters();
                 document.getElementById('editorTitle').textContent = note.title || 'Untitled Note';
             }
 
             createNewNote() {
+                // Clear any previous messages when creating a fresh note
+                this.hideMessage();
+
                 this.currentNote = {
                     id: null,
                     title: '',
@@ -731,11 +1129,13 @@
                 document.getElementById('noteDate').value = '';
                 document.getElementById('noteTime').value = '';
                 // reset translate state and button; keep translate controls visible in create mode
-                this._translateState = { applied: false, original: null };
+                this._translateState = { original: null, hasOriginal: false };
                 const translateBtn = document.getElementById('translateBtn');
                 if (translateBtn) { translateBtn.style.background = '#007bff'; translateBtn.textContent = 'Translate'; translateBtn.disabled = false; }
                 const transControls = document.getElementById('translateControls');
                 if (transControls) transControls.style.display = 'flex';
+                const undoTranslateBtn = document.getElementById('undoTranslateBtn');
+                if (undoTranslateBtn) undoTranslateBtn.style.display = 'none';
                 // ensure AI generator area is hidden in create mode
                 const aiArea = document.getElementById('aiGeneratorArea');
                 if (aiArea) aiArea.style.display = 'none';
@@ -753,11 +1153,13 @@
                 // reset translation UI
                 this._stopPollingTranslation();
                 this._clearTranslationUI();
+                this._refreshCounters();
             }
 
             async generateFromPrompt() {
                 const prompt = document.getElementById('generatePrompt').value.trim();
                 if (!prompt) {
+                    // show prompt error but keep it ephemeral; user switching away should clear it
                     this.showMessage('Please enter a prompt for generation', 'error');
                     return;
                 }
@@ -788,6 +1190,8 @@
             }
 
             showEditor() {
+                // entering editor should clear any previous transient error messages
+                this.hideMessage();
                 document.getElementById('emptyState').style.display = 'none';
                 document.getElementById('editorForm').style.display = 'block';
                 document.getElementById('editorActions').style.display = 'flex';
@@ -796,6 +1200,19 @@
                 if (header) header.style.display = 'flex';
                 const transControls = document.getElementById('translateControls');
                 if (transControls) transControls.style.display = 'flex';
+                // remove centering when editor has content and clear any inline styles
+                const editor = document.querySelector('.note-editor');
+                const empty = document.getElementById('emptyState');
+                if (editor) editor.classList.remove('center-empty');
+                if (empty) {
+                    empty.style.position = '';
+                    empty.style.top = '';
+                    empty.style.left = '';
+                    empty.style.transform = '';
+                    empty.style.width = '';
+                    empty.style.boxSizing = '';
+                    empty.style.textAlign = '';
+                }
             }
 
             hideEditor() {
@@ -812,6 +1229,9 @@
                 this._stopPollingTranslation();
                 // remove delete button when leaving editor
                 this.removeDeleteButton();
+                // center the empty state inside the editor container
+                const editor = document.querySelector('.note-editor');
+                if (editor) editor.classList.add('center-empty');
             }
 
             // Create a Delete button inside editorActions if not present
@@ -851,6 +1271,8 @@
                 }
 
                 if (!title && !content) {
+                    // stop any background polling that might cause 404 noise while user fixes the note
+                    this._stopPollingTranslation();
                     if (!isAutoSave) {
                         this.showMessage('Please enter a title or content', 'error');
                     }
@@ -958,15 +1380,52 @@
 
             showMessage(message, type) {
                 const messageArea = document.getElementById('messageArea');
-                messageArea.innerHTML = `<div class="${type}">${message}</div>`;
-                
-                if (type === 'success') {
-                    setTimeout(() => this.hideMessage(), 3000);
+                // Clear any pending hide timers
+                if (this._messageHideTimer) {
+                    clearTimeout(this._messageHideTimer);
+                    this._messageHideTimer = null;
                 }
+
+                // Build accessible message element
+                const div = document.createElement('div');
+                div.className = `message ${type}`;
+                // Use role=alert for error/success so screen readers announce them immediately
+                if (type === 'error' || type === 'success') div.setAttribute('role', 'alert');
+                // Use aria-live polite for loading to avoid interrupting
+                if (type === 'loading') div.setAttribute('aria-live', 'polite');
+
+                const textSpan = document.createElement('span');
+                textSpan.textContent = message;
+                div.appendChild(textSpan);
+
+                // Add inline styles to guarantee visibility (prevents external CSS from hiding the box)
+                if (type === 'error') {
+                    div.style.cssText = 'background:#fff2f2;color:#721c24;border:1px solid rgba(200,35,51,0.18);border-left:4px solid #c82333;padding:8px 12px;border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,0.04);display:block;margin-bottom:12px;font-size:14px;line-height:1.25;';
+                } else if (type === 'success') {
+                    div.style.cssText = 'background:#eaf7ee;color:#155724;border:1px solid rgba(30,120,40,0.08);padding:8px 12px;border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,0.03);display:block;margin-bottom:12px;font-size:14px;line-height:1.25;';
+                } else if (type === 'loading') {
+                    div.style.cssText = 'background:#fff9e6;color:#8a6d00;border:1px solid rgba(255,235,59,0.12);padding:8px 12px;border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,0.02);display:block;margin-bottom:12px;font-size:14px;line-height:1.25;';
+                } else {
+                    div.style.cssText = 'background:#fffaf9;color:#333;border:1px solid rgba(0,0,0,0.06);padding:8px 12px;border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,0.03);display:block;margin-bottom:12px;font-size:14px;line-height:1.25;';
+                }
+
+                // swap content
+                messageArea.innerHTML = '';
+                messageArea.appendChild(div);
+
+                // Auto-hide durations
+                const durations = { success: 3000, error: 4000, loading: 6000 };
+                const dur = durations[type] || 4000;
+                this._messageHideTimer = setTimeout(() => this.hideMessage(), dur);
             }
 
             hideMessage() {
-                document.getElementById('messageArea').innerHTML = '';
+                if (this._messageHideTimer) {
+                    clearTimeout(this._messageHideTimer);
+                    this._messageHideTimer = null;
+                }
+                const area = document.getElementById('messageArea');
+                if (area) area.innerHTML = '';
             }
 
             escapeHtml(text) {
@@ -995,16 +1454,34 @@
             // Translation polling helpers
             _startPollingTranslation(noteId) {
                 this._stopPollingTranslation();
-                // poll every 2 seconds
+
+                // Only start polling if the note currently indicates a translation is pending/in-progress.
+                // This avoids continuously polling arbitrary selected notes that have no translation work.
+                const note = (this.currentNote && this.currentNote.id === noteId) ? this.currentNote : (this.notes.find(n => n.id === noteId) || null);
+                const status = note ? note.translation_status : null;
+
+                // If there's no translation_status or it's already completed/failed, don't poll.
+                if (!status || ['completed', 'failed'].includes(status)) return;
+
+                // allowed pending statuses (adjust as your backend uses)
+                const pendingStates = ['pending', 'in_progress', 'queued'];
+                if (!pendingStates.includes(status)) return;
+
+                // poll every 2 seconds while translation is pending
                 this._pollInterval = setInterval(async () => {
                     try {
                         const res = await fetch(`/api/notes/${noteId}`);
+                        // stop polling if note is not found to avoid repeated 404s in network tab
+                        if (res.status === 404) {
+                            this._stopPollingTranslation();
+                            return;
+                        }
                         if (!res.ok) return;
-                        const note = await res.json();
-                        this.currentNote = note;
-                        this._updateTranslationUI(note);
-                        // if translation completed or failed, stop polling
-                        if (note.translation_status && ['completed','failed'].includes(note.translation_status)) {
+                        const noteResp = await res.json();
+                        this.currentNote = noteResp;
+                        this._updateTranslationUI(noteResp);
+                        // stop polling when translation completes or fails
+                        if (noteResp.translation_status && ['completed','failed'].includes(noteResp.translation_status)) {
                             this._stopPollingTranslation();
                         }
                     } catch (e) {

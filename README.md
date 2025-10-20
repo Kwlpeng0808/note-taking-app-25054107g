@@ -207,3 +207,24 @@ Potential improvements for future versions:
 
 **Built with ❤️ using Flask, SQLite, and modern web technologies**
 
+
+## 🗄️ Database / DB pool environment variables
+
+When running the app against a hosted Postgres (for example Supabase) you may need to tune SQLAlchemy's connection pool to avoid hitting the provider's maximum concurrent connections. The following environment variables are used by this project to control the SQLAlchemy engine behavior:
+
+- `DB_POOL_SIZE` - number of persistent connections the app will keep per process (QueuePool `pool_size`).
+- `DB_MAX_OVERFLOW` - additional temporary connections allowed above `DB_POOL_SIZE` when demand spikes (QueuePool `max_overflow`).
+- `DB_POOL_TIMEOUT` - number of seconds to wait for a connection from the pool before erroring (QueuePool `pool_timeout`).
+
+Recommendations
+- Local development (single process, VS Code Run): set `DB_POOL_SIZE=3` and `DB_MAX_OVERFLOW=0` (default in `.vscode/launch.json`). This keeps a small, conservative pool and avoids exhausting providers that limit total clients.
+- Local development with Flask reloader or debug mode: the reloader can create two processes (parent + child). If you keep the reloader enabled, prefer `DB_POOL_SIZE=1` to avoid doubling connections, or run using the "No Reloader" configuration (see `.vscode/launch.json`).
+- Production / multiple worker processes: calculate `workers * DB_POOL_SIZE` and ensure it stays below your provider's max connections (leave a small headroom for other services). For example, if your provider allows 15 connections and you use 3 workers, `DB_POOL_SIZE=4` would be too large (3 * 4 = 12 plus other connections could exceed the limit). A safe formula is `DB_POOL_SIZE = floor((max_allowed_connections - reserved) / workers)`.
+
+How to override
+- You can set these env vars in your deployment environment or locally via `.env` or VS Code launch configurations. If `SUPABASE_DATABASE_URL` is not set, the app falls back to the default local SQLite database (no pool tuning needed).
+
+Troubleshooting
+- If you see an error like "MaxClientsInSessionMode: max clients reached", reduce `DB_POOL_SIZE` and `DB_MAX_OVERFLOW`, or disable the reloader while running locally.
+- For quick debugging, run the "Run Flask (main.py) - No Reloader" configuration in `.vscode/launch.json` which sets `DEBUG=0` and avoids the double-process reloader.
+

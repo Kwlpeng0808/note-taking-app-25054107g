@@ -37,9 +37,26 @@ if supabase_db:
 else:
     app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('SQLALCHEMY_DATABASE_URI', f"sqlite:///{DB_PATH}")
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+# If using Supabase (pgbouncer/session pooling), keep SQLAlchemy pool very small and disable overflow.
+# This avoids "MaxClientsInSessionMode: max clients reached" when the remote pooler limits clients.
+if supabase_db:
+    # Allow overriding via env vars if needed (defaults conservative)
+    # default pool size for local/dev when connecting to Supabase; can override via env
+    pool_size = int(os.getenv('DB_POOL_SIZE', '3'))
+    max_overflow = int(os.getenv('DB_MAX_OVERFLOW', '0'))
+    pool_timeout = int(os.getenv('DB_POOL_TIMEOUT', '30'))
+    app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+        'pool_size': pool_size,
+        'max_overflow': max_overflow,
+        'pool_timeout': pool_timeout,
+        'pool_pre_ping': True,
+    }
 db.init_app(app)
 with app.app_context():
-    db.create_all()
+    # When Flask debug reloader is on, the script runs twice (parent + child). Only run DB DDL once.
+    # The reloader child process sets WERKZEUG_RUN_MAIN='true'. For non-debug runs, this will run once.
+    if (not app.debug) or (os.environ.get('WERKZEUG_RUN_MAIN') == 'true'):
+        db.create_all()
     # start background translation worker (in-process)
     try:
         from src.translation_worker import start_worker
