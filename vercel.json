@@ -5,6 +5,8 @@
     { "src": "src/static/**", "use": "@vercel/static" }
   ],
   "routes": [
+    { "src": "/api/notes$", "dest": "/api/notes/index.py" },
+    { "src": "/api/notes/(.*)", "dest": "/api/notes/$1.py" },
     { "src": "/api/(.*)", "dest": "/api/$1.py" },
     { "src": "/(.*)", "dest": "src/static/$1" }
   ]
