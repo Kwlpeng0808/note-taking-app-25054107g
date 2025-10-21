@@ -1,17 +1,12 @@
-"""Stub shim for /api/notes present only to avoid import/package name conflicts.
+"""Deprecated top-level shim for /api/notes.
 
-The real implementation lives in the package at api/notes/index.py. This file is
-kept as a safe, tiny stub so that if it exists on disk it won't export any
-non-class/module names that confuse the Vercel runtime (which previously raised
-TypeError: issubclass() arg 1 must be a class when a package/file name collided).
-
-Behavior: always returns 501 with a small JSON error directing traffic to the
-package implementation.
+This file intentionally minimal. The canonical implementation lives in
+`api/notes/index.py`. Keeping a small stub here reduces the risk of import-time
+side-effects or conflicting exports.
 """
-import json
-
 
 def handler(req, res):
+    # return a simple JSON message; Vercel routing should prefer the package
     res.status_code = 501
     res.headers['Content-Type'] = 'application/json'
-    res.send(json.dumps({'error': 'Deprecated endpoint. Use /api/notes (package)'}))
+    res.send('{"error":"deprecated endpoint: use /api/notes"}')
