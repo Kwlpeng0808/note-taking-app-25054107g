@@ -2,20 +2,31 @@ import os
 from dotenv import load_dotenv
 load_dotenv()
 
-from openai import OpenAI
 
-# Use getenv so we can provide a helpful error instead of KeyError
-token = os.getenv("GITHUB_TOKEN")
+def _get_token():
+    """Return the GITHUB_TOKEN from environment or raise a RuntimeError.
+
+    This is intentionally done at call-time rather than import-time so that
+    importing this module in serverless environments doesn't crash when the
+    environment variable isn't configured.
+    """
+    t = os.getenv("GITHUB_TOKEN")
+    if not t:
+        raise RuntimeError(
+            "GITHUB_TOKEN is not set. Set the GITHUB_TOKEN environment variable in your deployment (or .env for local dev)."
+        )
+    return t
+
+
 endpoint = "https://models.github.ai/inference"
 model = "openai/gpt-4.1-mini"
 
-if not token:
-    raise RuntimeError(
-        "GITHUB_TOKEN is not set. Add it to your .env file or set the environment variable before running."
-    )
-
 
 def run_chat():
+    # create client lazily and validate token at call time
+    from openai import OpenAI
+    token = _get_token()
+
     client = OpenAI(
         base_url=endpoint,
         api_key=token,
@@ -45,9 +56,9 @@ def translate_text(title: str, content: str, target_language: str):
 
     Returns dict with keys 'title' and 'content' or None on failure.
     """
-    if not token:
-        raise RuntimeError('GITHUB_TOKEN is not set; cannot call translation model')
-
+    # Validate token and create client lazily
+    from openai import OpenAI
+    token = _get_token()
     client = OpenAI(base_url=endpoint, api_key=token)
 
     prompt = f"Translate the following note title and content into {target_language}."
@@ -101,9 +112,9 @@ def generate_note(prompt: str, target_language: str = 'en'):
 
     Returns dict: { title, content, tags: [str], scheduled_at: ISO string or None }
     """
-    if not token:
-        raise RuntimeError('GITHUB_TOKEN is not set; cannot call generation model')
-
+    # Validate token and create client lazily
+    from openai import OpenAI
+    token = _get_token()
     client = OpenAI(base_url=endpoint, api_key=token)
     system = "You are an assistant that creates short notes. Given a user's natural language input, produce a JSON object with keys: 'title' (string), 'content' (string), 'tags' (array of up to 3 short tag strings), and 'scheduled_at' (ISO 8601 datetime string if a time is mentioned in the input, otherwise null). Respond with JSON only."
     user_prompt = f"User input: {prompt}\nTarget language: {target_language}\nRespond only with a JSON object."
@@ -157,8 +168,9 @@ def translate_tags(tags, target_language: str):
 
     Returns a list of translated tag strings or None on failure.
     """
-    if not token:
-        raise RuntimeError('GITHUB_TOKEN is not set; cannot call translation model')
+    # Validate token and create client lazily
+    from openai import OpenAI
+    token = _get_token()
 
     # normalize tags to list of strings
     if tags is None:
