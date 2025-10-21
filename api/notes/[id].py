@@ -19,6 +19,7 @@ REST_HEADERS = {
 
 def get_note(note_id):
     url = f"{SUPABASE_URL}/rest/v1/notes?id=eq.{note_id}&select=*"
+    import requests
     r = requests.get(url, headers=REST_HEADERS, timeout=10)
     if r.status_code != 200:
         return r.status_code, {'error': r.text}
@@ -37,6 +38,7 @@ def update_note(note_id, req):
     headers = REST_HEADERS.copy()
     headers['Prefer'] = 'return=representation'
     url = f"{SUPABASE_URL}/rest/v1/notes?id=eq.{note_id}"
+    import requests
     r = requests.patch(url, headers=headers, json=payload, timeout=10)
     if r.status_code not in (200, 204):
         return 500, {'error': r.text}
@@ -46,6 +48,7 @@ def update_note(note_id, req):
 
 def delete_note(note_id):
     url = f"{SUPABASE_URL}/rest/v1/notes?id=eq.{note_id}"
+    import requests
     r = requests.delete(url, headers=REST_HEADERS, timeout=10)
     if r.status_code not in (200, 204):
         return 500, {'error': r.text}
