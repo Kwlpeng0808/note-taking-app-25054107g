@@ -127,6 +127,8 @@ def search_notes():
 def generate_note_route():
     """Generate a note from natural language input (does not persist)."""
     try:
+        if not llm.token:
+            return jsonify({'error': 'GITHUB_TOKEN is not configured. Note generation is unavailable.'}), 503
         data = request.json
         if not data or 'prompt' not in data:
             return jsonify({'error': 'prompt is required'}), 400
@@ -144,6 +146,8 @@ def generate_note_route():
 def translate_route():
     """Translate provided title/content/tags into the requested language and return translations without persisting."""
     try:
+        if not llm.token:
+            return jsonify({'error': 'GITHUB_TOKEN is not configured. Translation is unavailable.'}), 503
         data = request.json or {}
         title = data.get('title', '')
         content = data.get('content', '')
