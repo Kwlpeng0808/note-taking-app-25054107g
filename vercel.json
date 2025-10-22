@@ -7,7 +7,7 @@
   "routes": [
     { "src": "/api/notes$", "dest": "/api/notes/index.py" },
   { "src": "/api/notes/(.*)", "dest": "/api/notes/[id].py" },
-    { "src": "/api/(.*)", "dest": "/api/$1.py" },
+  { "src": "/api/(.*)", "dest": "/api/_router.py" },
     { "src": "/(.*)", "dest": "src/static/$1" }
   ]
 }
