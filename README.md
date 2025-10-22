@@ -152,6 +152,35 @@ The application is configured for easy deployment with:
 - Production-ready Flask configuration
 - Persistent SQLite database
 
+### Deploying to Vercel
+
+This repository includes a minimal Vercel configuration (`vercel.json`) and a server entrypoint at `api/index.py` which exposes the Flask `app` callable.
+
+Steps to deploy:
+
+1. Install the Vercel CLI (optional for local testing):
+
+   On Windows (PowerShell):
+
+   ```powershell
+   npm i -g vercel
+   ```
+
+2. Ensure required environment variables are set in the Vercel dashboard:
+   - `SECRET_KEY` (optional)
+   - `GITHUB_TOKEN` (or your preferred LLM token) if you use the LLM features
+   - `SUPABASE_DATABASE_URL` if you want to use Postgres instead of SQLite
+
+3. Deploy with the Vercel CLI from the project root:
+
+   ```powershell
+   vercel --prod
+   ```
+
+Notes:
+- Vercel serverless functions are short-lived; background threads started inside the request process are not reliable in production. The project avoids starting the translation worker during import. If you need background processing in production, use a separate worker (e.g., a background job on a VM, server, or serverless queue) or an external service like Supabase Edge Functions.
+- For local testing with an in-process worker (not for production), set the env var `START_IN_PROCESS_WORKER=1` before running or with `vercel dev`.
+
 ## 🔧 Configuration
 
 ### Environment Variables
