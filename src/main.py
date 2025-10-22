@@ -26,23 +26,36 @@ app.register_blueprint(note_bp, url_prefix='/api')
 # configure database to use repository-root `database/app.db`, allow override from env
 ROOT_DIR = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
 DB_PATH = os.path.join(ROOT_DIR, 'database', 'app.db')
-# ensure database directory exists
-os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
 
 # Allow switching to Supabase/Postgres via SUPABASE_DATABASE_URL or SUPABASE_API_KEY
 # Preferred order: SUPABASE_DATABASE_URL -> SQLALCHEMY_DATABASE_URI -> local sqlite fallback
+# On Vercel, ALWAYS use Supabase (detected via VERCEL env var)
+is_vercel = os.getenv('VERCEL') == '1'
 supabase_db = os.getenv('SUPABASE_DATABASE_URL')
-if supabase_db:
+
+if is_vercel:
+    # On Vercel, Supabase is required
+    if not supabase_db:
+        raise ValueError("SUPABASE_DATABASE_URL environment variable is required when running on Vercel")
+    app.config['SQLALCHEMY_DATABASE_URI'] = supabase_db
+elif supabase_db:
+    # Local/dev environment: use Supabase if explicitly configured
     app.config['SQLALCHEMY_DATABASE_URI'] = supabase_db
 else:
+    # Local/dev environment: use local SQLite as fallback
+    # Ensure database directory exists (only on local, Vercel FS is read-only)
+    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
     app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('SQLALCHEMY_DATABASE_URI', f"sqlite:///{DB_PATH}")
+
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
 # If using Supabase (pgbouncer/session pooling), keep SQLAlchemy pool very small and disable overflow.
 # This avoids "MaxClientsInSessionMode: max clients reached" when the remote pooler limits clients.
-if supabase_db:
+if supabase_db or is_vercel:
     # Allow overriding via env vars if needed (defaults conservative)
     # default pool size for local/dev when connecting to Supabase; can override via env
-    pool_size = int(os.getenv('DB_POOL_SIZE', '3'))
+    # On Vercel, use even more conservative defaults for serverless environments
+    pool_size = int(os.getenv('DB_POOL_SIZE', '2' if is_vercel else '3'))
     max_overflow = int(os.getenv('DB_MAX_OVERFLOW', '0'))
     pool_timeout = int(os.getenv('DB_POOL_TIMEOUT', '30'))
     app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {

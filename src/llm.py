@@ -9,10 +9,10 @@ token = os.getenv("GITHUB_TOKEN")
 endpoint = "https://models.github.ai/inference"
 model = "openai/gpt-4.1-mini"
 
+# Note: GITHUB_TOKEN is optional at import time for Vercel deployments.
+# It will be validated at function call time if/when LLM features are used.
 if not token:
-    raise RuntimeError(
-        "GITHUB_TOKEN is not set. Add it to your .env file or set the environment variable before running."
-    )
+    print("WARNING: GITHUB_TOKEN is not set. LLM features (translation, note generation) will not be available.")
 
 
 def run_chat():
