@@ -4,14 +4,35 @@ Serverless function for /api/generate
 Accepts POST with JSON: { prompt: string, language?: string }
 Returns JSON: { title: string, content: string, tags: [string], scheduled_at?: string }
 
-Uses OpenAI via OPENAI_API_KEY. Ensure OPENAI_API_KEY is set in Vercel env.
+Uses GitHub's hosted model via GITHUB_TOKEN and the GitHub inference endpoint.
+Ensure GITHUB_TOKEN is set in Vercel env (we do not use OPENAI_API_KEY).
 """
 import os
 import json
-import openai
 
-OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
-openai.api_key = OPENAI_API_KEY
+
+def _get_openai_client():
+    try:
+        from openai import OpenAI
+    except Exception:
+        # openai may not be installed in some build steps; allow import-time
+        # to succeed and fail at call-time with a clear message.
+        return None, 'openai not installed'
+
+    # Use GITHUB_TOKEN for GitHub-hosted model access
+    key = os.getenv('GITHUB_TOKEN')
+    if not key:
+        return None, 'GITHUB_TOKEN not configured'
+
+    # reuse endpoint defined in src/llm.py to keep a single source of truth
+    try:
+        from src.llm import endpoint as GH_ENDPOINT
+    except Exception:
+        # fallback to the known GitHub inference endpoint
+        GH_ENDPOINT = 'https://models.github.ai/inference'
+
+    client = OpenAI(base_url=GH_ENDPOINT, api_key=key)
+    return client, None
 
 
 def handler(req, res):
@@ -20,9 +41,10 @@ def handler(req, res):
         res.send(json.dumps({'error': 'Method not allowed'}))
         return
 
-    if not OPENAI_API_KEY:
+    client, err = _get_openai_client()
+    if err:
         res.status_code = 500
-        res.send(json.dumps({'error': 'OpenAI API key not configured'}))
+        res.send(json.dumps({'error': err}))
         return
 
     try:
@@ -47,7 +69,7 @@ def handler(req, res):
     user_msg = f'Language: {language}. Prompt: {prompt}'
 
     try:
-        resp = openai.ChatCompletion.create(
+        resp = client.ChatCompletion.create(
             model='gpt-3.5-turbo',
             messages=[
                 {'role': 'system', 'content': system_msg},
