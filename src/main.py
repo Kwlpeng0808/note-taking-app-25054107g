@@ -57,12 +57,11 @@ with app.app_context():
     # The reloader child process sets WERKZEUG_RUN_MAIN='true'. For non-debug runs, this will run once.
     if (not app.debug) or (os.environ.get('WERKZEUG_RUN_MAIN') == 'true'):
         db.create_all()
-    # start background translation worker (in-process)
-    try:
-        from src.translation_worker import start_worker
-        start_worker(app)
-    except Exception as e:
-        print('Failed to start translation worker:', e)
+    # NOTE: Do NOT start the in-process background translation worker here on import.
+    # Starting background threads during module import is unsafe in serverless environments
+    # (like Vercel) because processes may be short-lived and multiple imports may happen.
+    # To start the in-process worker for local development, set the env var
+    # START_IN_PROCESS_WORKER=1 and run this module directly (python -m src.main or python src/main.py).
 
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
