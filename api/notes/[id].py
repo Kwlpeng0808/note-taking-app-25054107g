@@ -5,7 +5,6 @@ Supports GET, PUT, DELETE using Supabase REST via HTTP requests.
 """
 import os
 import json
-import requests
 
 SUPABASE_URL = os.getenv('SUPABASE_URL')
 SUPABASE_KEY = os.getenv('SUPABASE_SERVICE_ROLE_KEY')
