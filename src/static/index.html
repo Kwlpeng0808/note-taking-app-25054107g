@@ -71,6 +71,7 @@
             flex-direction: column;
             min-height: 420px; /* give editor area enough vertical space for centered empty state */
             position: relative; /* allow absolute centering of the empty state */
+            overflow: hidden; /* prevent overflow during centering transitions */
         }
 
         .search-box {
@@ -294,12 +295,17 @@
             padding: 2px 6px;
             border-radius: 6px;
             font-size: 12px;
+            transition: color 0.2s ease, background 0.2s ease, border 0.2s ease;
         }
 
-        /* red state for inline counters */
+        /* red state for inline counters when hitting limit - make it more visible */
         .input-with-counter .char-counter.inline.limit {
             color: #c82333;
             font-weight: 800;
+            background: #ffe6e6;
+            border: 1px solid #c82333;
+            padding: 3px 8px;
+            box-shadow: 0 1px 3px rgba(200,35,51,0.2);
         }
 
         .form-input:focus {
@@ -368,7 +374,8 @@
         /* character counter badge positioned inside textarea container */
         .textarea-container {
             position: relative;
-
+            display: block;
+        }
 
         .char-counter {
             /* Inline counter shown below textarea, right-aligned via container */
@@ -380,15 +387,26 @@
             font-size: 12px;
             pointer-events: none;
             box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+            transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+            margin-top: 4px;
         }
 
-        /* Visual state when the counter hits the configured maxlength */
+        /* Visual state when the counter hits the configured maxlength - More prominent red styling */
         .char-counter.limit {
-            background: rgba(255,245,245,0.98);
-            color: #c82333; /* bootstrap danger-ish red */
+            background: #ffe6e6;
+            color: #c82333; /* bold red */
             font-weight: 700;
-            box-shadow: 0 1px 2px rgba(200,35,51,0.08);
-            border: 1px solid rgba(200,35,51,0.12);
+            box-shadow: 0 2px 4px rgba(200,35,51,0.25);
+            border: 1px solid #c82333;
+            padding: 5px 10px;
+            animation: limitPulse 0.5s ease-in-out;
+        }
+
+        /* Pulse animation for limit state to draw attention */
+        @keyframes limitPulse {
+            0% { box-shadow: 0 2px 4px rgba(200,35,51,0.15); }
+            50% { box-shadow: 0 4px 8px rgba(200,35,51,0.35); }
+            100% { box-shadow: 0 2px 4px rgba(200,35,51,0.25); }
         }
 
         /* (removed) warn state — counters only show red at maxlength now */
@@ -411,20 +429,27 @@
         }
 
         /* Center the editor empty-state both vertically and horizontally within the editor area */
-        /* Center empty state using a toggleable class on the editor container */
+        /* Initially, emptyState should be centered by default to avoid left-align flash */
         .note-editor #emptyState {
             display: flex;
             align-items: center;
             justify-content: center;
             flex-direction: column;
             padding: 0;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: calc(100% - 50px);
+            box-sizing: border-box;
         }
 
-        /* When the editor has no content, add this class to center the empty-state vertically */
+        /* When the editor has no content, add this class to ensure centering persists */
         .note-editor.center-empty {
             justify-content: center;
             align-items: center;
         }
+        
         /* Ensure the empty-state fills the editor horizontally and its text centers */
         .note-editor.center-empty .empty-state {
             width: 100%;
@@ -432,16 +457,7 @@
             padding: 40px 24px; /* comfortable vertical spacing */
             box-sizing: border-box;
         }
-        /* Strong rule: absolutely center the emptyState element when the editor is in center-empty mode */
-        .note-editor.center-empty #emptyState {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: calc(100% - 50px);
-            box-sizing: border-box;
-            padding: 24px 24px;
-        }
+        
         /* Strong override to ensure centering works across browsers and specificity */
         .note-editor.center-empty #emptyState {
             position: absolute !important;
@@ -660,9 +676,9 @@
                             <button id="runGenerateBtn" class="btn" style="background:#6f42c1; color:white; border-radius:8px; align-self:center; padding:8px 14px;">Generate</button>
                         </div>
                         <div style="margin-top:8px; width:100%;" class="textarea-container">
-                                <textarea id="aiDescription" class="form-input" rows="3" maxlength="500" placeholder="Briefly describe the note you want (what happened, summary, tone, tags or time)." style="white-space:pre-wrap; word-break:break-word; width:100%;"></textarea>
-                            </div>
+                            <textarea id="aiDescription" class="form-input" rows="3" maxlength="500" placeholder="Briefly describe the note you want (what happened, summary, tone, tags or time)." style="white-space:pre-wrap; word-break:break-word; width:100%;"></textarea>
                             <div class="char-counter" id="aiDescCounter">0/500</div>
+                        </div>
                     </div>
                     <div class="form-group">
                         <label class="form-label" for="noteTitle">Title</label>
@@ -683,8 +699,12 @@
 
 
                     <div class="form-group">
-                        <label class="form-label" for="noteTags">Tags (comma-separated)</label>
-                        <input type="text" class="form-input" id="noteTags" placeholder="e.g. work, personal, ideas">
+                        <label class="form-label" for="noteTags">Tags</label>
+                        <div class="input-with-counter">
+                            <input type="text" class="form-input" id="noteTags" placeholder="e.g. work, personal, ideas">
+                            <div class="char-counter inline" id="tagsCounter">0/10</div>
+                        </div>
+                        <div style="font-size: 12px; color: #999; margin-top: 4px;">Tip: Separate tags with commas. Max 10 tags allowed.</div>
                     </div>
 
                     <div class="form-group" style="display:flex; gap:12px; align-items:center;">
@@ -729,8 +749,11 @@
                 this.bindEvents();
                 await this.loadNotes();
                 // Ensure empty-state is visually centered after initial load
+                // Apply centering immediately and with a small delay to ensure DOM is ready
                 try {
                     this._ensureCenteredEmptyState();
+                    // Re-apply after a brief delay to ensure all styles are computed
+                    setTimeout(() => this._ensureCenteredEmptyState(), 50);
                 } catch (e) {
                     /* ignore */
                 }
@@ -740,12 +763,17 @@
                 const editor = document.querySelector('.note-editor');
                 const empty = document.getElementById('emptyState');
                 if (!editor || !empty) return;
-                // If editor form is hidden (no note selected / initial empty state), force centering
+                
+                // Check if the editor is in the empty state (no note selected)
                 const editorForm = document.getElementById('editorForm');
+                const editorHeader = document.getElementById('editorHeader');
                 const formHidden = editorForm && (editorForm.style.display === 'none' || getComputedStyle(editorForm).display === 'none');
-                if (formHidden) {
+                const headerHidden = editorHeader && (editorHeader.style.display === 'none' || getComputedStyle(editorHeader).display === 'none');
+                
+                // Only center if we're in the empty state
+                if (formHidden && headerHidden) {
                     editor.classList.add('center-empty');
-                    // Apply inline styles similar to the console workaround so it's robust against CSS specificity issues
+                    // Apply inline styles to ensure centering persists
                     empty.style.position = 'absolute';
                     empty.style.top = '50%';
                     empty.style.left = '50%';
@@ -753,6 +781,9 @@
                     empty.style.width = 'calc(100% - 50px)';
                     empty.style.boxSizing = 'border-box';
                     empty.style.textAlign = 'center';
+                } else {
+                    // Ensure centering class is removed when in edit mode
+                    editor.classList.remove('center-empty');
                 }
             }
 
@@ -913,6 +944,69 @@
                     });
                 }
 
+                // Tags input: limit to max 10 tags
+                const tagsEl = document.getElementById('noteTags');
+                const tagsCounter = document.getElementById('tagsCounter');
+                const maxTags = 10;
+                
+                const updateTagsCounter = () => {
+                    if (!tagsEl || !tagsCounter) return;
+                    const tagsText = tagsEl.value.trim();
+                    const tagsArray = tagsText ? tagsText.split(',').map(t => t.trim()).filter(t => t.length > 0) : [];
+                    const tagCount = tagsArray.length;
+                    
+                    tagsCounter.textContent = `${tagCount}/${maxTags}`;
+                    if (tagCount >= maxTags) {
+                        tagsCounter.classList.add('limit');
+                    } else {
+                        tagsCounter.classList.remove('limit');
+                    }
+                };
+                
+                if (tagsEl) {
+                    tagsEl.addEventListener('input', () => {
+                        // Parse current tags - preserve spaces within tags
+                        const tagsText = tagsEl.value;
+                        const parts = tagsText.split(',');
+                        
+                        // Count valid tags and check if we exceed the limit
+                        const validTags = [];
+                        let exceedsLimit = false;
+                        
+                        for (let i = 0; i < parts.length; i++) {
+                            const tag = parts[i].trim();
+                            
+                            if (tag.length > 0) {
+                                if (validTags.length < maxTags) {
+                                    // Store trimmed tag
+                                    validTags.push(tag);
+                                } else {
+                                    // Mark that we've exceeded the limit
+                                    exceedsLimit = true;
+                                    break;
+                                }
+                            } else if (i < parts.length - 1) {
+                                // Keep empty segments between commas (for partially typed tags)
+                                validTags.push('');
+                            } else if (tagsText.endsWith(',')) {
+                                // User just typed a comma - keep it for visual feedback
+                                validTags.push('');
+                            }
+                        }
+                        
+                        // Reconstruct tags string, preserving formatting
+                        // Only update if exceeded limit to avoid unnecessary reformatting
+                        if (exceedsLimit) {
+                            tagsEl.value = validTags.join(', ');
+                        }
+                        
+                        updateTagsCounter();
+                    });
+                    
+                    // Initialize counter
+                    updateTagsCounter();
+                }
+
                 // Translate button behavior (binding)
                 const translateBtn = document.getElementById('translateBtn');
                 const undoTranslateBtn = document.getElementById('undoTranslateBtn');
@@ -1010,6 +1104,18 @@
                         searchCounter.textContent = `${searchBoxEl.value.length}/${maxS}`;
                         if (searchBoxEl.value.length >= maxS) searchCounter.classList.add('limit'); else searchCounter.classList.remove('limit');
                     }
+
+                    // Refresh tags counter
+                    const tagsEl = document.getElementById('noteTags');
+                    const tagsCounter = document.getElementById('tagsCounter');
+                    if (tagsEl && tagsCounter) {
+                        const tagsText = tagsEl.value.trim();
+                        const tagsArray = tagsText ? tagsText.split(',').map(t => t.trim()).filter(t => t.length > 0) : [];
+                        const tagCount = tagsArray.length;
+                        const maxTags = 10;
+                        tagsCounter.textContent = `${tagCount}/${maxTags}`;
+                        if (tagCount >= maxTags) tagsCounter.classList.add('limit'); else tagsCounter.classList.remove('limit');
+                    }
                 } catch (e) {
                     // silent
                 }
@@ -1077,7 +1183,8 @@
                 
                 document.getElementById('noteTitle').value = note.title || '';
                 document.getElementById('noteContent').value = note.content || '';
-                document.getElementById('noteLanguage').value = note.language || 'en';
+                // Always reset language to English when viewing existing notes (not the original language)
+                document.getElementById('noteLanguage').value = 'en';
                 document.getElementById('noteTags').value = (note.tags || []).join(', ');
                 if (note.scheduled_at) {
                     const d = new Date(note.scheduled_at);
@@ -1128,6 +1235,9 @@
                 document.getElementById('noteTags').value = '';
                 document.getElementById('noteDate').value = '';
                 document.getElementById('noteTime').value = '';
+                // reset AI description and language to defaults
+                document.getElementById('aiDescription').value = '';
+                document.getElementById('noteLanguage').value = 'en';
                 // reset translate state and button; keep translate controls visible in create mode
                 this._translateState = { original: null, hasOriginal: false };
                 const translateBtn = document.getElementById('translateBtn');
@@ -1203,7 +1313,11 @@
                 // remove centering when editor has content and clear any inline styles
                 const editor = document.querySelector('.note-editor');
                 const empty = document.getElementById('emptyState');
-                if (editor) editor.classList.remove('center-empty');
+                if (editor) {
+                    editor.classList.remove('center-empty');
+                    // Ensure overflow is visible when displaying content
+                    editor.style.overflow = 'visible';
+                }
                 if (empty) {
                     empty.style.position = '';
                     empty.style.top = '';
@@ -1232,6 +1346,8 @@
                 // center the empty state inside the editor container
                 const editor = document.querySelector('.note-editor');
                 if (editor) editor.classList.add('center-empty');
+                // Immediately ensure centering is applied
+                this._ensureCenteredEmptyState();
             }
 
             // Create a Delete button inside editorActions if not present
@@ -1321,6 +1437,11 @@
                     
                     this.renderNotesList();
                     document.getElementById('editorTitle').textContent = savedNote.title;
+                    // Create Delete button for saved note (now in view/edit mode)
+                    this.createDeleteButton();
+                    // Ensure AI generator area is hidden after saving
+                    const aiArea = document.getElementById('aiGeneratorArea');
+                    if (aiArea) aiArea.style.display = 'none';
                     // start polling for translation updates (if pending)
                     this._startPollingTranslation(savedNote.id);
                     this._updateTranslationUI(savedNote);
