@@ -1330,6 +1330,8 @@
             }
 
             hideEditor() {
+                // Clear any messages before hiding editor to avoid overlap with empty state
+                this.hideMessage();
                 document.getElementById('emptyState').style.display = 'block';
                 document.getElementById('editorForm').style.display = 'none';
                 document.getElementById('editorActions').style.display = 'none';
@@ -1469,8 +1471,10 @@
                     // Remove from notes array
                     this.notes = this.notes.filter(n => n.id !== this.currentNote.id);
                     this.renderNotesList();
-                    this.hideEditor();
+                    // Show success message first
                     this.showMessage('Note deleted successfully!', 'success');
+                    // Then hide editor after a delay to ensure message is visible
+                    setTimeout(() => this.hideEditor(), 2000);
                 } catch (error) {
                     this.showMessage(`Error deleting note: ${error.message}`, 'error');
                 }
