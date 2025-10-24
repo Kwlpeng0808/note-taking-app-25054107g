@@ -111,13 +111,19 @@ def delete_note(note_id):
 
 @note_bp.route('/notes/search', methods=['GET'])
 def search_notes():
-    """Search notes by title or content"""
+    """Search notes by title, content, or tags"""
     query = request.args.get('q', '')
     if not query:
         return jsonify([])
     
+    # Convert query to lowercase for case-insensitive search
+    query_lower = query.lower()
+    
+    # Search in title or content
     notes = Note.query.filter(
-        (Note.title.contains(query)) | (Note.content.contains(query))
+        (Note.title.ilike(f'%{query}%')) | 
+        (Note.content.ilike(f'%{query}%')) |
+        (Note.tags.ilike(f'%{query}%'))  # Search in tags field
     ).order_by(Note.updated_at.desc()).all()
     
     return jsonify([note.to_dict() for note in notes])
