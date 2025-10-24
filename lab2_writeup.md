@@ -1,4 +1,4 @@
-# Lab2 Writing up
+# Lab2 Writeup
 
 A Report that contain the major steps for completing the tasks and some challenges in the tasks.
 
@@ -89,23 +89,35 @@ Configure the required environment variables in the Vercel project settings. Sen
 
 Initiate the deployment. Monitor the build and runtime logs in the Vercel dashboard to ensure the process completes without errors.
 ![alt text](screenshots/Vercel8-3.png)
+![alt text](screenshots/Vercel8-4.png)
 
 ## 🌟 Challenges and Insights
 
-### LLM model response problems
-When utilizing a large language model (LLM) to power the translation and AI-based note generation features, the LLM server sometimes takes a considerable amount of time to return a response. This leads to a suboptimal user experience. However, this is fundamentally an issue with the external service (e.g., poor network conditions) and is beyond the control of my project's code.
+### 1. LLM model response problems
+When utilizing a large language model (LLM) to implement the translation and AI-based note generation features, the LLM server sometimes takes a considerable amount of time to return a response. This leads to a suboptimal user experience. Actually, this is fundamentally an issue with the external service (e.g., poor network conditions) and is beyond the control of my project's code.
 
-Consequently, I considered how to optimize the feature logic to mitigate this poor experience:
+Consequently, I considered how to optimize the feature logic to mitigate this poor user experience:
 
 First, I implemented a three-retry mechanism: In [src/llm.py::translate_text], I added 3 retries with exponential backoff. This appropriately increases the number of system retry attempts, improving the chances of a successful request. Additionally, logging was incorporated to promptly print tracebacks when exceptions occur, facilitating future maintenance and debugging. Finally, even if the operation ultimately fails, it returns None to prevent blocking the note creation process.
+![alt text](screenshots/challenge1.png)
 
 Furthermore, I modified the translation request to be handled as an asynchronous background task (translation_worker). This avoids blocking user requests and allows for more robust handling of retries and persisting failed records. However, due to Vercel's serverless nature, this translation_worker does not start on Vercel (enabling it on Vercel would require deploying an external worker or using a cloud task/queue service, which is planned for future optimization).
+![alt text](screenshots/challenge2.png)
 
-The frontend status display was also optimized to show the translation status, helping users understand the current state and reducing confusion.
+Besides, the frontend status display was also optimized to show the translation status, helping users understand the current state and reducing confusion.
+![alt text](screenshots/challenge3.png)
 
+### 2. Consider the migration and adaptation of existing data
+During this project development, I encountered the following issue while optimizing the translation feature: the frontend was updated to display the current translation status, and the backend used SQLAlchemy ORM queries to construct SQL SELECT statements that included a newly added translation_status column. However, this column did not yet exist in the actual database table. Consequently, PostgreSQL raised an UndefinedColumn error, causing the Flask route to return a 500 status code.
 
+The solution was straightforward: executing an ALTER TABLE statement to add the missing column to the live database and committing the transaction to make the column visible to subsequent connections.
 
+However, this gave me a strong reminder: in the software development process, we cannot focus solely on introducing new features and new data. Equal attention must be paid to ensuring the compatibility of these new features with existing data. Production environments often contain vast amounts of legacy data. Failure to handle this compatibility can lead to severe issues and significantly impact users. Therefore, when introducing new features, a key priority must be the adaptation and migration of existing data.
 
+### 3. AI-generated code is powerful, but we cannot rely on it entirely.
 
+In my project, I frequently use AI-generated code to help me modify or optimize feature logic. It is highly useful, intelligent, and efficient. However, I gradually realized that it sometimes gets stuck on the surface of a problem without providing a fundamental solution, and can even introduce hidden bugs. When this happens, I try to solve the problem myself. But because a significant portion of the code was AI-generated, I then have to spend considerably more effort in understanding the issue and identifying the root cause, which was a major headache at the time.
 
+As discussed in class, when we become overly dependent on AI-generated code, it will subsequently take more effort for us to maintain and fix issues. I believe we must enhance our own knowledge reserves through more thorough learning. This enables us to better judge whether AI's actions and changes are reasonable, ensuring that AI truly becomes a tool for boosting efficiency, rather than a source of technical debt or messy code.
 
+Furthermore, since AI's code changes can potentially introduce more issues, I think we can also leverage AI during testing to analyze code changes and identify the functionalities and modules that require regression testing coverage. This approach can help improve overall test coverage and enhance the effectiveness of our testing efforts.
