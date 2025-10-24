@@ -1,37 +1,24 @@
-[![Open in Codespaces](https://classroom.github.com/assets/launch-codespace-2972f46106e565e64193e422d61a12cf1da4916b45550586e14ef0a7c637dd04.svg)](https://classroom.github.com/open-in-codespaces?assignment_repo_id=20425590)
 # NoteTaker - Personal Note Management Application
 
-A modern, responsive web application for managing personal notes with a beautiful user interface and full CRUD functionality.
+A personal note management app built with a lightweight backend and a modern, responsive frontend. Supports search, tags, optional AI generation and translation helpers.
 
 ## 🌟 Features
 
-- **Create Notes**: Add new notes with titles and rich content
+- **Create Notes**: Add new notes with title, content, tags and scheduled time
 - **Edit Notes**: Update existing notes with real-time editing
 - **Delete Notes**: Remove notes you no longer need
 - **Search Notes**: Find notes quickly by searching titles and content
-- **Auto-save**: Notes are automatically saved as you type
-- **Responsive Design**: Works perfectly on desktop and mobile devices
-- **Modern UI**: Beautiful gradient design with smooth animations
-- **Real-time Updates**: Instant feedback and updates
+- **AI Notes generation**: Optional AI generation and translation (requires token)
+- **Notes Translation**: Support translation into five common languages
 
 ## 🚀 Live Demo
 
-The application is deployed and accessible at: **https://3dhkilc88dkk.manus.space**
+The application is deployed and accessible at: **https://note-taking-app-25054107g.vercel.app/**
 
 ## 🛠 Technology Stack
-
-### Frontend
-- **HTML5**: Semantic markup structure
-- **CSS3**: Modern styling with gradients, animations, and responsive design
-- **JavaScript (ES6+)**: Interactive functionality and API communication
-
-### Backend
-- **Python Flask**: Web framework for API endpoints
-- **SQLAlchemy**: ORM for database operations
-- **Flask-CORS**: Cross-origin resource sharing support
-
-### Database
-- **SQLite**: Lightweight, file-based database for data persistence
+- Backend: Flask, SQLAlchemy
+- Frontend: static HTML/JS (src/static/index.html)
+- Database: Supabase
 
 ## 📁 Project Structure
 
@@ -39,20 +26,19 @@ The application is deployed and accessible at: **https://3dhkilc88dkk.manus.spac
 notetaking-app/
 ├── src/
 │   ├── models/
-│   │   ├── user.py          # User model (template)
-│   │   └── note.py          # Note model with database schema
+│   │   ├── user.py            # User model (template)
+│   │   └── note.py            # Note model with database schema
 │   ├── routes/
-│   │   ├── user.py          # User API routes (template)
-│   │   └── note.py          # Note API endpoints
+│   │   ├── user.py            # User API routes (template)
+│   │   └── note.py            # Note API endpoints
 │   ├── static/
-│   │   ├── index.html       # Frontend application
-│   │   └── favicon.ico      # Application icon
-│   ├── database/
-│   │   └── app.db           # SQLite database file
-│   └── main.py              # Flask application entry point
-├── venv/                    # Python virtual environment
-├── requirements.txt         # Python dependencies
-└── README.md               # This file
+│   │   ├── index.html         # Frontend application
+│   │   └── favicon.ico        # Application icon
+│   └── llm.py                 # Optional LLM integration
+│   └── main.py                # Flask application entry point
+│   └── translation_worker.py  # Optional translation worker
+├── requirements.txt           # Python dependencies
+└── README.md                  # This file
 ```
 
 ## 🔧 Local Development Setup
@@ -96,7 +82,8 @@ notetaking-app/
 - `GET /api/notes/<id>` - Get a specific note
 - `PUT /api/notes/<id>` - Update a note
 - `DELETE /api/notes/<id>` - Delete a note
-- `GET /api/notes/search?q=<query>` - Search notes
+- `POST /api/notes/generate` - AI Notes generate
+- `POST /api/translate` - Notes translation
 
 ### Request/Response Format
 ```json
@@ -109,151 +96,46 @@ notetaking-app/
 }
 ```
 
-## 🎨 User Interface Features
+## 🚀 Deployment
+- Vercel entry: api/index.py (exports `app`)
+- Provide required environment variables in your deployment environment
+- For background translation tasks, use an external worker or a proper background job system; serverless functions are short-lived
 
-### Sidebar
-- **Search Box**: Real-time search through note titles and content
-- **New Note Button**: Create new notes instantly
-- **Notes List**: Scrollable list of all notes with previews
-- **Note Previews**: Show title, content preview, and last modified date
-
-### Editor Panel
-- **Title Input**: Edit note titles
-- **Content Textarea**: Rich text editing area
-- **Save Button**: Manual save option (auto-save also available)
-- **Delete Button**: Remove notes with confirmation
-- **Real-time Updates**: Changes reflected immediately
-
-### Design Elements
-- **Gradient Background**: Beautiful purple gradient backdrop
-- **Glass Morphism**: Semi-transparent panels with backdrop blur
-- **Smooth Animations**: Hover effects and transitions
-- **Responsive Layout**: Adapts to different screen sizes
-- **Modern Typography**: Clean, readable font stack
-
-## 🔒 Database Schema
-
-### Notes Table
-```sql
-CREATE TABLE note (
-    id INTEGER PRIMARY KEY,
-    title VARCHAR(200) NOT NULL,
-    content TEXT NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
+Vercel deploy example:
+```powershell
+vercel --prod
 ```
 
-## 🚀 Deployment
+## 📄 Configuration & Environment Variables
+- `FLASK_ENV` — set to development for debug
+- `SECRET_KEY` — Flask secret for sessions
+- `GITHUB_TOKEN` — required for LLM features
+- `SUPABASE_DATABASE_UR`L` — optional, when using hosted Postgres
 
-The application is configured for easy deployment with:
-- CORS enabled for cross-origin requests
-- Host binding to `0.0.0.0` for external access
-- Production-ready Flask configuration
-- Persistent SQLite database
-
-### Deploying to Vercel
-
-This repository includes a minimal Vercel configuration (`vercel.json`) and a server entrypoint at `api/index.py` which exposes the Flask `app` callable.
-
-Steps to deploy:
-
-1. Install the Vercel CLI (optional for local testing):
-
-   On Windows (PowerShell):
-
-   ```powershell
-   npm i -g vercel
-   ```
-
-2. Ensure required environment variables are set in the Vercel dashboard:
-   - `SECRET_KEY` (optional)
-   - `GITHUB_TOKEN` (or your preferred LLM token) if you use the LLM features
-   - `SUPABASE_DATABASE_URL` if you want to use Postgres instead of SQLite
-
-3. Deploy with the Vercel CLI from the project root:
-
-   ```powershell
-   vercel --prod
-   ```
-
-Notes:
-- Vercel serverless functions are short-lived; background threads started inside the request process are not reliable in production. The project avoids starting the translation worker during import. If you need background processing in production, use a separate worker (e.g., a background job on a VM, server, or serverless queue) or an external service like Supabase Edge Functions.
-- For local testing with an in-process worker (not for production), set the env var `START_IN_PROCESS_WORKER=1` before running or with `vercel dev`.
-
-## 🔧 Configuration
-
-### Environment Variables
-- `FLASK_ENV`: Set to `development` for debug mode
-- `SECRET_KEY`: Flask secret key for sessions
-
-### Database Configuration
-- Database file: `src/database/app.db`
-- Automatic table creation on first run
-- SQLAlchemy ORM for database operations
-
-## 📱 Browser Compatibility
-
-- Chrome/Chromium (recommended)
-- Firefox
-- Safari
-- Edge
-- Mobile browsers (iOS Safari, Chrome Mobile)
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Test thoroughly
-5. Submit a pull request
-
-## 📄 License
-
-This project is open source and available under the MIT License.
-
-## 🆘 Support
-
-For issues or questions:
-1. Check the browser console for error messages
-2. Verify the Flask server is running
-3. Ensure all dependencies are installed
-4. Check network connectivity for the deployed version
-
-## 🎯 Future Enhancements
-
-Potential improvements for future versions:
-- User authentication and multi-user support
-- Note categories and tags
-- Rich text formatting (bold, italic, lists)
-- File attachments
-- Export functionality (PDF, Markdown)
-- Dark/light theme toggle
-- Offline support with service workers
-- Note sharing capabilities
-
----
-
-**Built with ❤️ using Flask, SQLite, and modern web technologies**
-
-
-## 🗄️ Database / DB pool environment variables
-
-When running the app against a hosted Postgres (for example Supabase) you may need to tune SQLAlchemy's connection pool to avoid hitting the provider's maximum concurrent connections. The following environment variables are used by this project to control the SQLAlchemy engine behavior:
-
+DB pool tuning env vars (for hosted Postgres):
 - `DB_POOL_SIZE` - number of persistent connections the app will keep per process (QueuePool `pool_size`).
 - `DB_MAX_OVERFLOW` - additional temporary connections allowed above `DB_POOL_SIZE` when demand spikes (QueuePool `max_overflow`).
 - `DB_POOL_TIMEOUT` - number of seconds to wait for a connection from the pool before erroring (QueuePool `pool_timeout`).
 
-Recommendations
-- Local development (single process, VS Code Run): set `DB_POOL_SIZE=3` and `DB_MAX_OVERFLOW=0` (default in `.vscode/launch.json`). This keeps a small, conservative pool and avoids exhausting providers that limit total clients.
-- Local development with Flask reloader or debug mode: the reloader can create two processes (parent + child). If you keep the reloader enabled, prefer `DB_POOL_SIZE=1` to avoid doubling connections, or run using the "No Reloader" configuration (see `.vscode/launch.json`).
-- Production / multiple worker processes: calculate `workers * DB_POOL_SIZE` and ensure it stays below your provider's max connections (leave a small headroom for other services). For example, if your provider allows 15 connections and you use 3 workers, `DB_POOL_SIZE=4` would be too large (3 * 4 = 12 plus other connections could exceed the limit). A safe formula is `DB_POOL_SIZE = floor((max_allowed_connections - reserved) / workers)`.
+If SUPABASE_DATABASE_URL is not set, app falls back to local SQLite.
 
-How to override
-- You can set these env vars in your deployment environment or locally via `.env` or VS Code launch configurations. If `SUPABASE_DATABASE_URL` is not set, the app falls back to the default local SQLite database (no pool tuning needed).
+## 🔒 Database Schema and Notes Table
+```sql
+CREATE TABLE note (
+  id INTEGER PRIMARY KEY,
+  title VARCHAR(200) NOT NULL,
+  content TEXT NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+```
 
-Troubleshooting
-- If you see an error like "MaxClientsInSessionMode: max clients reached", reduce `DB_POOL_SIZE` and `DB_MAX_OVERFLOW`, or disable the reloader while running locally.
-- For quick debugging, run the "Run Flask (main.py) - No Reloader" configuration in `.vscode/launch.json` which sets `DEBUG=0` and avoids the double-process reloader.
+## 🤝 Contributing
+1. Fork
+2. Create a branch
+3. Implement features and tests
+4. Open a pull request
 
+## 📄 License
+
+This project is open source and available under the MIT License.

@@ -1481,11 +1481,19 @@
             }
 
             searchNotes(query) {
-                const filteredNotes = query.trim() === '' ? this.notes : 
-                    this.notes.filter(note => 
-                        (note.title && note.title.toLowerCase().includes(query.toLowerCase())) ||
-                        (note.content && note.content.toLowerCase().includes(query.toLowerCase()))
-                    );
+                const lowerQuery = query.toLowerCase().trim();
+                const filteredNotes = lowerQuery === '' ? this.notes : 
+                    this.notes.filter(note => {
+                        // Search in title
+                        if (note.title && note.title.toLowerCase().includes(lowerQuery)) return true;
+                        // Search in content
+                        if (note.content && note.content.toLowerCase().includes(lowerQuery)) return true;
+                        // Search in tags (split tags and check each one)
+                        if (note.tags && Array.isArray(note.tags)) {
+                            return note.tags.some(tag => tag.toLowerCase().includes(lowerQuery));
+                        }
+                        return false;
+                    });
 
                 const notesList = document.getElementById('notesList');
                 if (filteredNotes.length === 0) {
@@ -1493,14 +1501,21 @@
                     return;
                 }
 
-                notesList.innerHTML = filteredNotes.map(note => `
+                notesList.innerHTML = filteredNotes.map(note => {
+                    const tags = (note.tags || []).map(t => '#' + this.escapeHtml(t)).join(' ');
+                    const dateStr = note.scheduled_at ? new Date(note.scheduled_at).toLocaleString('en-US', {year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}) : this.formatDateMinute(note.updated_at);
+                    return `
                     <div class="note-item ${this.currentNote && this.currentNote.id === note.id ? 'active' : ''}" 
                          data-note-id="${note.id}" onclick="noteTaker.selectNote(${note.id})">
                         <div class="note-title">${this.escapeHtml(note.title || 'Untitled')}</div>
-                        <div class="note-preview">${this.escapeHtml(note.content || 'No content')}</div>
-                        <div class="note-date">${this.formatDate(note.updated_at)}</div>
+                        <div class="note-preview">${this.escapeHtml(note.translated_content || note.content || 'No content')}</div>
+                        <div class="note-meta">
+                            <div class="note-tags">${tags}</div>
+                            <div class="note-date">${dateStr}</div>
+                        </div>
                     </div>
-                `).join('');
+                    `;
+                }).join('');
             }
 
             showMessage(message, type) {
@@ -1525,13 +1540,13 @@
 
                 // Add inline styles to guarantee visibility (prevents external CSS from hiding the box)
                 if (type === 'error') {
-                    div.style.cssText = 'background:#fff2f2;color:#721c24;border:1px solid rgba(200,35,51,0.18);border-left:4px solid #c82333;padding:8px 12px;border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,0.04);display:block;margin-bottom:12px;font-size:14px;line-height:1.25;';
+                    div.style.cssText = 'background:#fff2f2;color:#721c24;border:1px solid rgba(200,35,51,0.18);border-left:4px solid #c82333;padding:8px 12px;border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,0.04);display:block;margin-bottom:12px;font-size:14px;line-height:1.25;text-align:left;';
                 } else if (type === 'success') {
-                    div.style.cssText = 'background:#eaf7ee;color:#155724;border:1px solid rgba(30,120,40,0.08);padding:8px 12px;border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,0.03);display:block;margin-bottom:12px;font-size:14px;line-height:1.25;';
+                    div.style.cssText = 'background:#eaf7ee;color:#155724;border:1px solid rgba(30,120,40,0.08);padding:8px 12px;border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,0.03);display:block;margin-bottom:12px;font-size:14px;line-height:1.25;text-align:left;';
                 } else if (type === 'loading') {
-                    div.style.cssText = 'background:#fff9e6;color:#8a6d00;border:1px solid rgba(255,235,59,0.12);padding:8px 12px;border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,0.02);display:block;margin-bottom:12px;font-size:14px;line-height:1.25;';
+                    div.style.cssText = 'background:#fff9e6;color:#8a6d00;border:1px solid rgba(255,235,59,0.12);padding:8px 12px;border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,0.02);display:block;margin-bottom:12px;font-size:14px;line-height:1.25;text-align:left;';
                 } else {
-                    div.style.cssText = 'background:#fffaf9;color:#333;border:1px solid rgba(0,0,0,0.06);padding:8px 12px;border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,0.03);display:block;margin-bottom:12px;font-size:14px;line-height:1.25;';
+                    div.style.cssText = 'background:#fffaf9;color:#333;border:1px solid rgba(0,0,0,0.06);padding:8px 12px;border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,0.03);display:block;margin-bottom:12px;font-size:14px;line-height:1.25;text-align:left;';
                 }
 
                 // swap content
